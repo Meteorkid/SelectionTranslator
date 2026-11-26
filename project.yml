@@ -1,0 +1,103 @@
+name: SelectionTranslator
+options:
+  bundleIdPrefix: com.meteor
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    CODE_SIGN_STYLE: Manual
+    CODE_SIGN_IDENTITY: "-"
+    CODE_SIGNING_ALLOWED: YES
+    ENABLE_HARDENED_RUNTIME: NO
+    SWIFT_STRICT_CONCURRENCY: minimal
+
+targets:
+  SelectionTranslator:
+    type: application
+    platform: macOS
+    sources:
+      - path: Sources/SelectionCore
+      - path: Sources/SelectionTranslatorApp
+      - path: Support/Resources/ecdict.tsv
+        buildPhase: resources
+      - path: Support/Resources/NOTICE.md
+        buildPhase: resources
+    dependencies:
+      - sdk: Vision.framework
+      - sdk: AVFoundation.framework
+      - sdk: CoreServices.framework
+      - sdk: libsqlite3.tbd
+    info:
+      path: Support/Info.plist
+      properties:
+        CFBundleDisplayName: 划词翻译
+        CFBundleShortVersionString: "0.4.0"
+        CFBundleVersion: "5"
+        LSMinimumSystemVersion: "14.0"
+        LSUIElement: true
+        NSSupportsAutomaticTermination: false
+        NSHighResolutionCapable: true
+        NSHumanReadableCopyright: "Local-first reading assistant"
+        CFBundleURLTypes:
+          - CFBundleURLName: com.meteor.SelectionTranslator.url
+            CFBundleURLSchemes:
+              - selectiontranslator
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.meteor.SelectionTranslator
+        PRODUCT_NAME: SelectionTranslator
+        MARKETING_VERSION: "0.4.0"
+        CURRENT_PROJECT_VERSION: "5"
+
+  SelectionTranslatorTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: Tests/SelectionTranslatorTests
+    dependencies:
+      - target: SelectionTranslator
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.meteor.SelectionTranslatorTests
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/SelectionTranslator.app/Contents/MacOS/SelectionTranslator"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGN_IDENTITY: "-"
+
+  SelectionProbe:
+    type: tool
+    platform: macOS
+    sources:
+      - path: Sources/SelectionCore
+      - path: Sources/SelectionProbe
+    dependencies:
+      - sdk: Vision.framework
+      - sdk: AVFoundation.framework
+      - sdk: CoreServices.framework
+      - sdk: libsqlite3.tbd
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.meteor.SelectionProbe
+        PRODUCT_NAME: selection-probe
+
+schemes:
+  SelectionTranslator:
+    build:
+      targets:
+        SelectionTranslator: all
+    run:
+      config: Debug
+    test:
+      targets:
+        - SelectionTranslatorTests
+  SelectionProbe:
+    build:
+      targets:
+        SelectionProbe: all
+    run:
+      config: Debug
