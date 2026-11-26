@@ -16,6 +16,7 @@ final class MouseSelectionMonitor {
 
     private var globalMonitor: Any?
     private var localMonitor: Any?
+    private var activationObserver: NSObjectProtocol?
     private var pendingTask: Task<Void, Never>?
     private var isRunning = false
 
@@ -40,7 +41,23 @@ final class MouseSelectionMonitor {
             self?.hideSelection()
             return event
         }
+
+        // Chromium/Electron build their accessibility tree lazily. Prepare it
+        // when the app comes forward, so a later mouse selection is visible.
+        activationObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                guard let self, self.isRunning else { return }
+                SelectionCaptureService.prepareAccessibility(
+                    for: NSWorkspace.shared.frontmostApplication
+                )
+            }
+        }
         isRunning = true
+        SelectionCaptureService.prepareAccessibility(for: NSWorkspace.shared.frontmostApplication)
         log.info("mouse selection monitor started")
     }
 
@@ -52,6 +69,10 @@ final class MouseSelectionMonitor {
         if let localMonitor {
             NSEvent.removeMonitor(localMonitor)
             self.localMonitor = nil
+        }
+        if let activationObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(activationObserver)
+            self.activationObserver = nil
         }
         hideSelection()
         isRunning = false
@@ -87,6 +108,7 @@ final class MouseSelectionMonitor {
             return
         }
 
+        SelectionCaptureService.prepareAccessibility(for: NSWorkspace.shared.frontmostApplication)
         guard let capture = SelectionCaptureService.accessibilityCapture(
             maxContextLength: maxContextLength
         ) else {

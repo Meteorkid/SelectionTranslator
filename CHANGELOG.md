@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased — 0.4.0 之后
+
+- 浏览器/Electron AX 树预启用，Chrome 原生取词补上 AX text marker 上下文。
+- AX 调用增加 0.20s 超时；Chromium 聚焦元素 bounded fallback；安全输入和密码字段 fail closed。
+- 剪贴板降级改为目标 PID + `changeCount` + 快照恢复，文件复制不当作选中文字。
+- OCR 增加语言自动检测、同行碎片合并和段落间距重建；新增 4 个 OCR 版面测试，XCTest 共 17 个。
+- 细节见 `docs/open-source-capture-ocr-review.md`；未改变 v0.4.0 Release。
+
 ## 0.4.0 — 2026-11-26
 
 - 新增可切换的「液态玻璃」主题；原生主题仍是默认，旧设置自动回退原生。

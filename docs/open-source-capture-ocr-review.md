@@ -1,0 +1,106 @@
+# 开源取词与 OCR 方案对照：0.4.0 之后的取词硬化
+
+日期：2026-11-27  
+状态：已应用到 `main`；不改变已发布的 `v0.4.0` Release，也不复制任何 GPL 源码。
+
+## 结论
+
+这次没有再找“更像 Bob 的多服务聚合器”，而是把范围收窄到划词翻译最关键、也最容易翻车的两条链路：**跨 App 取词**和**OCR 版面重建**。
+
+对照后选择的参考对象是 **Cida**（原生 Swift、Apache-2.0），补充参考 **Easydict**（事件时序）、**Pot Desktop**（插件/OCR 广度）和 **Blurt**（屏幕文字，MIT）。最终没有引入第三方运行时依赖，只吸收了四条实现原则：
+
+1. 浏览器/Electron 的 AX 树是懒加载的，必须在取词前预启用。
+2. 所有 AX 调用必须有短超时；密码输入必须 fail closed。
+3. 剪贴板降级不能“清空再 sleep”，要用目标 PID、`changeCount` 和快照恢复。
+4. OCR 不能把每个 Vision observation 当一行；要按行框归并，再按段间距重建。
+
+## 参考项目
+
+| 项目 | 语言/许可 | 值得参考 | 不直接采用 |
+| --- | --- | --- | --- |
+| [Cida](https://github.com/Xuanwo/cida) | Swift / Apache-2.0 | AX 树启用、短消息超时、安全输入保护、文本标记取全文、剪贴板快照、OCR 版面重建 | 它是“翻译/润色任意处文字”的产品，选区替换模型与本项目不同 |
+| [Easydict](https://github.com/tisfeng/Easydict) | Swift / GPL-3.0 | 事件监听、划词 debounce、服务层抽象 | 65k+ 行、多服务和 GPL，不适合照搬 |
+| [Pot Desktop](https://github.com/pot-app/pot-desktop) | JS/Rust / GPL-3.0 | 多服务插件、跨平台 OCR | Tauri/插件体系与原生单 App 的取舍不同 |
+| [Blurt](https://github.com/AGIHunt/blurt) | Swift/Rust / MIT | 屏幕文字、OCR 测试样例 | 产品中心是语音输入/记录，不是划词翻译 |
+
+Cida 的关键源码位置：
+
+- `Sources/Cida/TranslationLayerAccessibility.swift`：`AXManualAccessibility` / `AXEnhancedUserInterface`
+- `Sources/Cida/SelectedText.swift`：AX 选区读取、`AXTextMarker`、剪贴板复制兜底
+- `Sources/Cida/SelectionReplacement.swift`：0.03s AX 超时、`IsSecureEventInputEnabled`、安全文本子角色、PID 定向事件
+- `Sources/Cida/TextRecognition.swift`：`automaticallyDetectsLanguage`、同行碎片合并、段落间距
+
+这些实现只作为行为和 API 选择的参考；本项目按自己的 `AX`、`SelectionCaptureService`、`ClipboardFallback` 结构重写。
+
+## 应用的改动
+
+### 1. 浏览器/Electron AX 树预启用
+
+`AX.prepareAccessibility(for:)` 在 App 激活和取词前调用：
+
+- 对 Electron 设置 `AXManualAccessibility`；
+- 对 Chromium 浏览器，在 manual 失败时设置 `AXEnhancedUserInterface`；
+- `MouseSelectionMonitor` 监听 `didActivateApplicationNotification`，提前给前台 App 建树。
+
+Chrome 的 AX 树需要约两秒才会出现；如果只在用户按下快捷键时才设置，第一次取词仍可能读不到。预启用把这段时间移到 App 切到前台时。
+
+### 2. AX 超时和安全输入
+
+- 所有 `AXUIElementCopyAttributeValue` 前设置 `0.20s` messaging timeout。
+- `AXIsProcessTrusted`、`IsSecureEventInputEnabled` 和 `kAXSecureTextFieldSubrole` 三重失败保护。
+- Chromium 根节点暂时没有 `AXFocusedUIElement` 时，做一次 120ms / 18 层的 bounded 搜索，只接受显式 focused 的文本字段。
+- 取词前阻止 Terminal、iTerm、Keychain、Passwords、1Password、Bitwarden 等敏感 App。
+
+### 3. 剪贴板降级重写
+
+`ClipboardFallback` 从“清空剪贴板 → 固定 sleep 0.12s → 读 → 恢复”改成：
+
+- `⌘C` 只发给 frontmost App 的 PID（`postToPid`），避免焦点切换后打到别的 App；
+- 先保存完整 pasteboard 快照，等待 `changeCount` 真正变化且 types 非空；
+- 文件复制不当作选中文字；
+- 恢复快照并标记 `org.nspasteboard.TransientType`，避免剪贴板管理器把恢复动作再记一条；
+- 超时后如果目标 App 迟到的复制只让 `changeCount` 增加 1，再恢复快照；如果用户已经复制了别的内容，不覆盖。
+
+### 4. 浏览器上下文：AX text marker 回退
+
+Chrome 的 `AXValue` 是空的，`AXStringForRange` 也不支持；但 `AXTextMarkerRangeForUIElement` 加上 `AXAttributedStringForTextMarkerRange` 能拿到整页文本。
+
+`AX.fullText(of:)` 现在先读常规 `AXValue`，为空时走 text marker，再用 `AXSelectedTextRange` 定位并截取上下文。实测本地 Chrome 页面：
+
+- `Source: accessibility`
+- 选中 214 chars
+- 上下文 339 chars（包含标题和前后两段）
+
+这修复了此前 Chrome 里只有选中文字、没有上下文的退化；浏览器扩展路径本来就会传 `context/document`，现在原生 `⌥D` 路径也一致。
+
+### 5. OCR 版面重建
+
+`OCRTextLayout` 取代原来的“每个 observation 一行”：
+
+- `automaticallyDetectsLanguage = true`，减少中英混排时英文被中文识别器写成全角标点；
+- 同一视觉行的碎片按 x 坐标合并；
+- 行间距按中位行高判断，普通换行用单换行，段落间距用空行；
+- Vision 的 bottom-left bounding box 转成 top-left 坐标后再排序。
+
+## 验证
+
+- `./scripts/build.sh`：**BUILD SUCCEEDED**
+- `xcodebuild test ...`：**Executed 17 tests, with 0 failures**
+- Chrome 本地页面：`selection-probe` 读到 214 字符选区 + 339 字符上下文
+- 剪贴板 probe：目标 Chrome 选区复制成功（214 字符），剪贴板快照 `restored: true`
+- OCR probe：对 0.4.0 设置页和翻译浮窗截图识别正常，同行碎片合并、段落空行符合预期
+
+## 已知边界
+
+- Chromium 树预启用需要 App 先收到激活事件；如果刚切到浏览器就立刻按快捷键，第一次仍可能读不到，第二次通常可用。
+- 部分 Electron App 只暴露 `AXManualAccessibility`，不暴露文本标记；这类 App 仍可能只能拿到 `AXSelectedText`。
+- 剪贴板降级的 `⌘C` 仍使用 ANSI C 键码；Dvorak 等非 QWERTY 布局下需要后续补键盘布局映射。
+- 安全输入、密码字段和敏感 App 选择直接失败，不尝试绕过。
+- OCR 版面算法是轻量近似，不处理表格、竖排和多栏复杂版面；需要时再引入更强的版面模型。
+
+## 下一步候选
+
+1. 给 Chromium 加“选区变化监听”，而不是每次取词才查 AX。
+2. 补键盘布局感知的 `⌘C` / `⌘V` 键码，参考 Cida 的 `TextEditingCommand` 思路。
+3. 把 OCR 版面算法扩展到多栏、表格和竖排。
+4. 再考虑第二个翻译服务；在此之前不引入插件系统。

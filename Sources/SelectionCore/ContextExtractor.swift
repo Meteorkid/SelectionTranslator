@@ -5,7 +5,8 @@ enum ContextExtractor {
     static func context(around range: CFRange, in element: AXUIElement, maxLength: Int) -> String {
         guard maxLength > 0 else { return "" }
 
-        if let fullText = AX.fullText(of: element) {
+        if let fullText = AX.fullText(of: element),
+           (fullText as NSString).length >= range.location + range.length {
             return substring(fullText, around: range, maxLength: maxLength)
         }
 

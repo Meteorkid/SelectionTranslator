@@ -111,8 +111,11 @@ enum OCRService {
         let request = VNRecognizeTextRequest()
         request.recognitionLevel = .accurate
         request.usesLanguageCorrection = true
+        // A fixed first language gives English lines full-width punctuation
+        // when the screenshot contains Chinese. Let Vision detect each line.
+        request.automaticallyDetectsLanguage = true
         request.recognitionLanguages = [
-            "en-US", "zh-Hans", "zh-Hant", "ja-JP", "ko-KR",
+            "zh-Hans", "en-US", "zh-Hant", "ja-JP", "ko-KR",
             "fr-FR", "de-DE", "es-ES", "pt-BR", "ru-RU", "it-IT", "ar-SA"
         ]
 
@@ -124,36 +127,24 @@ enum OCRService {
         }
 
         let observations = request.results ?? []
-        let sorted = observations.sorted { lhs, rhs in
-            let yDelta = abs(lhs.boundingBox.midY - rhs.boundingBox.midY)
-            if yDelta > 0.025 {
-                return lhs.boundingBox.midY > rhs.boundingBox.midY
-            }
-            return lhs.boundingBox.minX < rhs.boundingBox.minX
+        let lines: [RecognizedLine] = observations.compactMap { observation in
+            guard let candidate = observation.topCandidates(1).first else { return nil }
+            let box = observation.boundingBox
+            // Vision measures from the bottom-left; the layout reads top-down.
+            return RecognizedLine(
+                text: candidate.string,
+                frame: CGRect(
+                    x: box.minX,
+                    y: 1 - box.maxY,
+                    width: box.width,
+                    height: box.height
+                )
+            )
         }
 
-        // Use the actual line height to decide paragraph breaks. A fixed
-        // threshold inserts blank lines between ordinary single-spaced lines.
-        let lineHeights = sorted.map(\.boundingBox.height).sorted()
-        let medianLineHeight = lineHeights.isEmpty
-            ? 0.03
-            : lineHeights[lineHeights.count / 2]
-        let paragraphGap = max(0.03, medianLineHeight * 1.7)
-
-        var lines: [String] = []
-        var lastMidY: CGFloat?
-        for observation in sorted {
-            guard let candidate = observation.topCandidates(1).first else { continue }
-            if let lastMidY, lastMidY - observation.boundingBox.midY > paragraphGap {
-                lines.append("")
-            }
-            lines.append(candidate.string)
-            lastMidY = observation.boundingBox.midY
+        guard let text = OCRTextLayout.text(from: lines) else {
+            throw OCRServiceError.noText
         }
-
-        let text = lines.joined(separator: "\n")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { throw OCRServiceError.noText }
         return text
     }
 }
