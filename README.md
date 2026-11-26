@@ -27,6 +27,7 @@ GitHub Releases：<https://github.com/Meteorkid/SelectionTranslator/releases>
 - 输入翻译窗口：`⌥A`，可手动贴一段文章
 - 截图 OCR：`⌥O`；静默 OCR：`⌥⇧S`（只把识别文字复制到剪贴板）
 - OCR 版面重建：同一行的识别碎片合并，按行高识别段落空行，并开启语言自动检测
+- OCR 低置信度重试：原图不可靠时自动做灰度/对比度/锐化增强，必要时反色；按置信度、字符数和行数选择最佳 pass
 - 整篇文章上下文：设置「上下文」里可保存当前文章，按账户隔离；划词、剪贴板、输入、浏览器入口都会带上它
 - 单词快路径：macOS 系统词典 → 内置 ECDICT 5.6 万词库 → 缓存，几十毫秒，不经过模型
 - 模型翻译：OpenAI-compatible 流式接口，DeepSeek / OpenAI / Ollama / LM Studio 共用一套协议
@@ -36,11 +37,11 @@ GitHub Releases：<https://github.com/Meteorkid/SelectionTranslator/releases>
 - Anki：AnkiConnect 测试、把收藏发送到牌组；也支持 CSV 手动导入
 - 朗读：AVSpeechSynthesizer
 - 浏览器入口：Chrome Manifest V3 扩展，选区旁出现“译”按钮，带选区 + 段落 + 整页上下文；也支持右键菜单与 `Ctrl+Shift+Y`
-- 跨 App 取词硬化：Chrome/Electron 切前台时预启用 AX 树；Chromium 通过 AX text marker 补全文和上下文；AX 调用有 0.20s 超时
+- 跨 App 取词硬化：Chrome/Electron 切前台时预启用 AX 树；Chromium 通过 AX text marker 补全文和上下文；AX 调用有 0.20s 超时；system-wide 焦点回退校验前台 PID
 - 剪贴板降级安全化：目标 PID 定向复制、等待 `changeCount`、保留/恢复剪贴板快照，文件复制不会被当成选中文字
 - Safari Web Extension：已生成并签名 `browser-extension/safari-project`，在 Safari 里启用并授予“所有网站”权限后，选区浮标 → 外部协议 → App 面板的端到端链路已走通
 - 轻量更新检查：设置里填版本 JSON 地址；手动检查可显示“发现新版本 / 已是最新 / 未配置”，不会自动下载安装
-- 自动化回归：`SelectionTranslatorTests` 共 17 个 XCTest 用例，覆盖 URL 解析、设置迁移（含外观回退）、Prompt、缓存 key、更新比较、History/CSV、OCR 版面
+- 自动化回归：`SelectionTranslatorTests` 共 20 个 XCTest 用例，覆盖 URL 解析、设置迁移（含外观回退）、Prompt、缓存 key、更新比较、History/CSV、OCR 版面与多 pass 评分
 - URL Scheme：`selectiontranslator://translate?...`、`clipboard`、`input`、`ocr`、`silent-ocr`、`library`、`settings`
 - 52 种目标语言目录，系统翻译与模型可用性因语言而异
 - 设置页：账户 / 翻译 / 上下文 / 快捷键 / 数据与权限，五个 Tab
@@ -91,7 +92,7 @@ xcodebuild test \
   -derivedDataPath build/DerivedData
 ```
 
-当前 17 个 XCTest 用例全部通过；最后一次结果：`** TEST SUCCEEDED **`。
+当前 20 个 XCTest 用例全部通过；最后一次结果：`** TEST SUCCEEDED **`。
 
 ## 浏览器扩展
 

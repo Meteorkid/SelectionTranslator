@@ -91,7 +91,25 @@ enum AX {
         }
         let system = AXUIElementCreateSystemWide()
         AXUIElementSetMessagingTimeout(system, messagingTimeout)
-        return copy(system, kAXFocusedUIElementAttribute, as: AXUIElement.self)
+        guard let systemFocused: AXUIElement = copy(
+            system,
+            kAXFocusedUIElementAttribute,
+            as: AXUIElement.self
+        ) else {
+            return nil
+        }
+
+        // A system-wide query can return a focused element owned by another
+        // process, such as our own non-activating panel. Reject it instead of
+        // translating a stale selection from the wrong app.
+        if let frontApp = NSWorkspace.shared.frontmostApplication {
+            var pid: pid_t = 0
+            guard AXUIElementGetPid(systemFocused, &pid) == .success,
+                  pid == frontApp.processIdentifier else {
+                return nil
+            }
+        }
+        return systemFocused
     }
 
     static func isSecureTextField(_ element: AXUIElement) -> Bool {

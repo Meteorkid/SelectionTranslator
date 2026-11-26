@@ -108,19 +108,79 @@ enum OCRService {
             throw OCRServiceError.invalidImage
         }
 
+        let originalPass = OCRPassVariant(
+            image: cgImage,
+            usesLanguageCorrection: true,
+            minimumTextHeight: 0
+        )
+        var best: OCRQuality?
+        var lastError: Error?
+
+        func run(_ variant: OCRPassVariant) {
+            do {
+                let quality = try recognizePass(variant)
+                guard !quality.text.isEmpty else { return }
+                if best == nil || quality.score > best!.score {
+                    best = quality
+                }
+            } catch {
+                lastError = error
+            }
+        }
+
+        // First pass: the untouched image. If it is already reliable, stop;
+        // otherwise retry with contrast/sharpness and, if needed, inversion.
+        run(originalPass)
+        if best?.isReliable != true,
+           let enhanced = OCRImageEnhancer.enhanced(from: cgImage) {
+            run(OCRPassVariant(
+                image: enhanced,
+                usesLanguageCorrection: false,
+                minimumTextHeight: 0.002
+            ))
+        }
+        if best?.isReliable != true,
+           let inverted = OCRImageEnhancer.enhanced(from: cgImage, inverted: true) {
+            run(OCRPassVariant(
+                image: inverted,
+                usesLanguageCorrection: false,
+                minimumTextHeight: 0.002
+            ))
+        }
+
+        if let best {
+            return String(best.text.prefix(8_000))
+        }
+        if let lastError {
+            throw OCRServiceError.visionFailed(lastError.localizedDescription)
+        }
+        throw OCRServiceError.noText
+    }
+}
+
+
+private struct OCRPassVariant {
+    let image: CGImage
+    let usesLanguageCorrection: Bool
+    let minimumTextHeight: Float
+}
+
+private extension OCRService {
+    static func recognizePass(_ variant: OCRPassVariant) throws -> OCRQuality {
         let request = VNRecognizeTextRequest()
         request.recognitionLevel = .accurate
-        request.usesLanguageCorrection = true
+        request.usesLanguageCorrection = variant.usesLanguageCorrection
+        request.automaticallyDetectsLanguage = true
+        request.minimumTextHeight = variant.minimumTextHeight
         // A fixed first language gives English lines full-width punctuation
         // when the screenshot contains Chinese. Let Vision detect each line.
-        request.automaticallyDetectsLanguage = true
         request.recognitionLanguages = [
             "zh-Hans", "en-US", "zh-Hant", "ja-JP", "ko-KR",
             "fr-FR", "de-DE", "es-ES", "pt-BR", "ru-RU", "it-IT", "ar-SA"
         ]
 
+        let handler = VNImageRequestHandler(cgImage: variant.image, options: [:])
         do {
-            let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
             try handler.perform([request])
         } catch {
             throw OCRServiceError.visionFailed(error.localizedDescription)
@@ -141,10 +201,17 @@ enum OCRService {
                 )
             )
         }
-
-        guard let text = OCRTextLayout.text(from: lines) else {
-            throw OCRServiceError.noText
-        }
-        return text
+        let text = OCRTextLayout.text(from: lines) ?? ""
+        let confidences = observations
+            .compactMap { $0.topCandidates(1).first?.confidence }
+            .map(Double.init)
+        let averageConfidence = confidences.isEmpty
+            ? 0
+            : confidences.reduce(0, +) / Double(confidences.count)
+        return OCRQuality(
+            text: text,
+            averageConfidence: averageConfidence,
+            lineCount: lines.count
+        )
     }
 }

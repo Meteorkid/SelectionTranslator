@@ -22,6 +22,9 @@
 | [Easydict](https://github.com/tisfeng/Easydict) | Swift / GPL-3.0 | 事件监听、划词 debounce、服务层抽象 | 65k+ 行、多服务和 GPL，不适合照搬 |
 | [Pot Desktop](https://github.com/pot-app/pot-desktop) | JS/Rust / GPL-3.0 | 多服务插件、跨平台 OCR | Tauri/插件体系与原生单 App 的取舍不同 |
 | [Blurt](https://github.com/AGIHunt/blurt) | Swift/Rust / MIT | 屏幕文字、OCR 测试样例 | 产品中心是语音输入/记录，不是划词翻译 |
+| [VocabPocket](https://github.com/alanzeng423/VocabPocket) | Swift / MIT | OCR 原图、增强、反色多 pass 和结果评分 | 功能面更宽，翻译服务/生词本不是本次目标 |
+| [MoePeek](https://github.com/cosZone/MoePeek) | Swift / AGPL-3.0 | AX → AppleScript → 剪贴板三级兜底、截图浮层保护、剪贴板访问门 | AGPL，只参考行为，不复制源码 |
+| [invisible-translator](https://github.com/on1ymyse1f/invisible-translator) | Swift / MIT | `AXSelectedTextMarkerRange` 读取 WebKit/Chromium 选区 | 产品侧重点在屏幕字幕与本地翻译 |
 
 Cida 的关键源码位置：
 
@@ -48,6 +51,7 @@ Chrome 的 AX 树需要约两秒才会出现；如果只在用户按下快捷键
 
 - 所有 `AXUIElementCopyAttributeValue` 前设置 `0.20s` messaging timeout。
 - `AXIsProcessTrusted`、`IsSecureEventInputEnabled` 和 `kAXSecureTextFieldSubrole` 三重失败保护。
+- system-wide 焦点回退会校验 `AXUIElementGetPid` 是否等于前台 App PID，拒绝来自非激活面板或其他进程的焦点。
 - Chromium 根节点暂时没有 `AXFocusedUIElement` 时，做一次 120ms / 18 层的 bounded 搜索，只接受显式 focused 的文本字段。
 - 取词前阻止 Terminal、iTerm、Keychain、Passwords、1Password、Bitwarden 等敏感 App。
 
@@ -82,13 +86,27 @@ Chrome 的 `AXValue` 是空的，`AXStringForRange` 也不支持；但 `AXTextMa
 - 行间距按中位行高判断，普通换行用单换行，段落间距用空行；
 - Vision 的 bottom-left bounding box 转成 top-left 坐标后再排序。
 
+## 第二轮：OCR 多 pass
+
+第一轮解决的是“取词能不能拿到”，第二轮解决的是“截图文字识别失败时能不能救回来”。
+
+参考 `VocabPocket` 的 OCR 思路，但不直接复制其源码：
+
+- 原图先跑一次 `.accurate` 识别；只有结果为空、字符太少或平均置信度低于 0.52 才进入增强 pass。
+- 增强 pass 做灰度、对比度、亮度、锐化；小图放大到 2x，中等图 1.5x，大图不放大，避免 4K 截图先被无谓放大。
+- 增强 pass 仍不可靠时，再跑一次反色 pass，覆盖深色背景/浅色文字。
+- 每个 pass 用 `OCRQuality` 打分：平均置信度 + 字符数 + 行数，避免“只识别到一个高置信度单词”被当成最佳结果；最终仍交给 `OCRTextLayout` 重建行和段落。
+- 原图可靠时只跑一次，不为正常截图增加延迟。
+
+这一轮也核对了 `MoePeek` 的三级取词和 `invisible-translator` 的 `AXSelectedTextMarkerRange` 读取；两者证明第一轮的 text-marker 方向正确。`MoePeek` 的截图浮层保护和剪贴板访问门是后续可借鉴的可靠性点，但因其 AGPL-3.0，本次没有复制实现。
+
 ## 验证
 
 - `./scripts/build.sh`：**BUILD SUCCEEDED**
-- `xcodebuild test ...`：**Executed 17 tests, with 0 failures**
+- `xcodebuild test ...`：**Executed 20 tests, with 0 failures**
 - Chrome 本地页面：`selection-probe` 读到 214 字符选区 + 339 字符上下文
 - 剪贴板 probe：目标 Chrome 选区复制成功（214 字符），剪贴板快照 `restored: true`
-- OCR probe：对 0.4.0 设置页和翻译浮窗截图识别正常，同行碎片合并、段落空行符合预期
+- OCR probe：对 0.4.0 设置页、深色背景白字、灰底灰字合成图均能识别；设置页输出 222 字符，同行碎片合并、段落空行符合预期
 
 ## 已知边界
 
@@ -103,4 +121,5 @@ Chrome 的 `AXValue` 是空的，`AXStringForRange` 也不支持；但 `AXTextMa
 1. 给 Chromium 加“选区变化监听”，而不是每次取词才查 AX。
 2. 补键盘布局感知的 `⌘C` / `⌘V` 键码，参考 Cida 的 `TextEditingCommand` 思路。
 3. 把 OCR 版面算法扩展到多栏、表格和竖排。
-4. 再考虑第二个翻译服务；在此之前不引入插件系统。
+4. 参考 `MoePeek` 的行为，补截图浮层期间的剪贴板兜底保护，以及并发剪贴板访问门；不复制 AGPL 代码。
+5. 再考虑第二个翻译服务；在此之前不引入插件系统。
