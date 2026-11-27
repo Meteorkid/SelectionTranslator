@@ -26,6 +26,7 @@ actor HistoryStore {
     private let encryptionKeyOverride: Data?
     private var cipher: HistoryCipher?
     private var lastCipherFailureAt: Date?
+    private var didMigrateLegacyRows = false
 
     init(databaseURL: URL? = nil, encryptionKey: Data? = nil) {
         let resolvedURL: URL
@@ -307,8 +308,10 @@ actor HistoryStore {
         if !didCreateSchema {
             try createSchema(database)
             try ensureColumns(database)
-            try migrateLegacyRows(database)
             didCreateSchema = true
+        }
+        if !didMigrateLegacyRows {
+            didMigrateLegacyRows = try migrateLegacyRows(database)
         }
         return database
     }
@@ -349,7 +352,10 @@ actor HistoryStore {
     /// Encrypt legacy plaintext rows in place once a key is available. If the
     /// Keychain is unavailable, keep the plaintext readable and retry on the
     /// next launch instead of losing the user's history.
-    private func migrateLegacyRows(_ db: OpaquePointer) throws {
+    /// Returns false when a row still needs attention (usually because the
+    /// Keychain key is unavailable). `requireDatabase` retries on later calls,
+    /// so granting access during the same session can finish the migration.
+    private func migrateLegacyRows(_ db: OpaquePointer) throws -> Bool {
         // Select any row that still has a non-empty plaintext field, or an
         // encrypted row whose character count has not been backfilled. This
         // also repairs rows left half-migrated by an interrupted write.
@@ -373,6 +379,7 @@ actor HistoryStore {
         defer { sqlite3_finalize(update) }
 
         var loadedCipher: HistoryCipher?
+        var complete = true
         while sqlite3_step(select) == SQLITE_ROW {
             // Loading the Keychain key is deferred until there is a row that
             // actually needs migration; a normal encrypted database can be
@@ -388,6 +395,12 @@ actor HistoryStore {
             let bundleID = text(select, 5)
             let existingCount = sqlite3_column_int64(select, 6)
 
+            let needsPlaintextEncryption = [source, translation, context, appName, bundleID]
+                .contains { !$0.isEmpty && !HistoryCipher.isEncrypted($0) }
+            if !cipher.isAvailable, needsPlaintextEncryption {
+                complete = false
+            }
+
             let encryptedSource = try encryptedIfNeeded(source, cipher: cipher)
             let encryptedTranslation = try encryptedIfNeeded(translation, cipher: cipher)
             let encryptedContext = try encryptedIfNeeded(context, cipher: cipher)
@@ -396,7 +409,12 @@ actor HistoryStore {
 
             let characterCount: Int64
             if HistoryCipher.isEncrypted(source) {
-                characterCount = (try? cipher.decrypt(source)).map { Int64($0.count) } ?? existingCount
+                if let decrypted = try? cipher.decrypt(source) {
+                    characterCount = Int64(decrypted.count)
+                } else {
+                    characterCount = existingCount
+                    if existingCount == 0 { complete = false }
+                }
             } else {
                 characterCount = Int64(source.count)
             }
@@ -414,6 +432,7 @@ actor HistoryStore {
             sqlite3_reset(update)
             sqlite3_clear_bindings(update)
         }
+        return complete
     }
 
     private func encryptedIfNeeded(
