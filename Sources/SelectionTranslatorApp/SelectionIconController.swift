@@ -91,6 +91,15 @@ final class SelectionIconController {
         }
     }
 
+    /// A floating icon should not survive a click elsewhere. Local mouse
+    /// events inside the icon panel are left alone so the button still works.
+    func hideIfClickOutside(_ event: NSEvent) {
+        guard let panel, event.window === panel else {
+            hide()
+            return
+        }
+    }
+
     func hide() {
         hideTask?.cancel()
         hideTask = nil

@@ -12,6 +12,7 @@ final class MouseSelectionMonitor {
     private let log = Logger(subsystem: "com.meteor.SelectionTranslator", category: "mouse-selection")
 
     var onSelection: ((CaptureResult, NSPoint) -> Void)?
+    var onMouseDown: ((NSEvent) -> Void)?
     var maxContextLength: Int = 1_600
 
     private var globalMonitor: Any?
@@ -39,6 +40,7 @@ final class MouseSelectionMonitor {
 
         localMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown]) { [weak self] event in
             self?.hideSelection()
+            self?.onMouseDown?(event)
             return event
         }
 
@@ -83,6 +85,7 @@ final class MouseSelectionMonitor {
         switch event.type {
         case .leftMouseDown:
             hideSelection()
+            onMouseDown?(event)
         case .leftMouseUp:
             scheduleCapture()
         default:

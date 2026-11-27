@@ -52,6 +52,9 @@ final class AppState: ObservableObject {
         }
         hotKeyManager.register(settingsStore.settings.hotkeys)
 
+        mouseSelectionMonitor.onMouseDown = { [weak self] event in
+            self?.selectionIconController.hideIfClickOutside(event)
+        }
         mouseSelectionMonitor.onSelection = { [weak self] capture, point in
             guard let self else { return }
             guard !self.settingsStore.settings.isAppExcluded(capture.bundleID) else {
