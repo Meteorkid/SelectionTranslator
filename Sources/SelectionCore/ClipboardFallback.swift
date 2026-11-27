@@ -6,6 +6,9 @@ enum ClipboardFallback {
     /// Ask clipboard managers not to record the restored snapshot.
     private static let transientType = NSPasteboard.PasteboardType("org.nspasteboard.TransientType")
 
+    /// Serializes snapshot/copy/restore so two quick triggers cannot race.
+    private static let accessLock = NSLock()
+
     /// Sends ⌘C to the target app, reads only a real text copy, and puts the
     /// original pasteboard back. Unlike a "clear then sleep" implementation,
     /// this waits for the target app to actually change the pasteboard.
@@ -14,7 +17,12 @@ enum ClipboardFallback {
         timeout: TimeInterval = 0.28,
         lateRestoreWindow: TimeInterval = 0.8
     ) -> String? {
-        guard !IsSecureEventInputEnabled() else { return nil }
+        guard !IsSecureEventInputEnabled(),
+              !ScreenshotOverlayDetector.isCapturingScreenshot(),
+              accessLock.try() else {
+            return nil
+        }
+        defer { accessLock.unlock() }
 
         let pasteboard = NSPasteboard.general
         let snapshot = snapshotItems(pasteboard)
@@ -99,6 +107,8 @@ enum ClipboardFallback {
     ) {
         guard !snapshot.isEmpty else { return }
         DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + delay) {
+            accessLock.lock()
+            defer { accessLock.unlock() }
             // One change after our command is the late copy. Any larger jump
             // means someone else owns the clipboard now; leave it alone.
             guard pasteboard.changeCount == originalChangeCount + 1 else { return }

@@ -38,10 +38,10 @@ GitHub Releases：<https://github.com/Meteorkid/SelectionTranslator/releases>
 - 朗读：AVSpeechSynthesizer
 - 浏览器入口：Chrome Manifest V3 扩展，选区旁出现“译”按钮，带选区 + 段落 + 整页上下文；也支持右键菜单与 `Ctrl+Shift+Y`
 - 跨 App 取词硬化：Chrome/Electron 切前台时预启用 AX 树；Chromium 通过 AX text marker 补全文和上下文；AX 调用有 0.20s 超时；system-wide 焦点回退校验前台 PID
-- 剪贴板降级安全化：目标 PID 定向复制、等待 `changeCount`、保留/恢复剪贴板快照，文件复制不会被当成选中文字
+- 剪贴板降级安全化：目标 PID 定向复制、等待 `changeCount`、保留/恢复剪贴板快照，文件复制不会被当成选中文字；截图工具浮层期间跳过；并发触发串行化
 - Safari Web Extension：已生成并签名 `browser-extension/safari-project`，在 Safari 里启用并授予“所有网站”权限后，选区浮标 → 外部协议 → App 面板的端到端链路已走通
 - 轻量更新检查：设置里填版本 JSON 地址；手动检查可显示“发现新版本 / 已是最新 / 未配置”，不会自动下载安装
-- 自动化回归：`SelectionTranslatorTests` 共 24 个 XCTest 用例，覆盖 URL 解析、设置迁移（含外观回退）、Prompt、缓存 key、更新比较、History/CSV、OCR 版面与多 pass 评分、鼠标点校验
+- 自动化回归：`SelectionTranslatorTests` 共 27 个 XCTest 用例，覆盖 URL 解析、设置迁移（含外观回退）、Prompt、缓存 key、更新比较、History/CSV、OCR 版面与多 pass 评分、鼠标点校验、截图浮层检测
 - URL Scheme：`selectiontranslator://translate?...`、`clipboard`、`input`、`ocr`、`silent-ocr`、`library`、`settings`
 - 52 种目标语言目录，系统翻译与模型可用性因语言而异
 - 设置页：账户 / 翻译 / 上下文 / 快捷键 / 数据与权限，五个 Tab
@@ -92,7 +92,7 @@ xcodebuild test \
   -derivedDataPath build/DerivedData
 ```
 
-当前 24 个 XCTest 用例全部通过；最后一次结果：`** TEST SUCCEEDED **`。
+当前 27 个 XCTest 用例全部通过；最后一次结果：`** TEST SUCCEEDED **`。
 
 ## 浏览器扩展
 

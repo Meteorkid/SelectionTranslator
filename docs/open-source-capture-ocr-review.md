@@ -64,6 +64,8 @@ Chrome 的 AX 树需要约两秒才会出现；如果只在用户按下快捷键
 - 文件复制不当作选中文字；
 - 恢复快照并标记 `org.nspasteboard.TransientType`，避免剪贴板管理器把恢复动作再记一条；
 - 超时后如果目标 App 迟到的复制只让 `changeCount` 增加 1，再恢复快照；如果用户已经复制了别的内容，不覆盖。
+- 截图工具的全屏取词浮层出现时跳过合成 ⌘C，避免把 `⌘C` 当成截屏工具的“复制截图”快捷键而取消截图。
+- 剪贴板快照/复制/恢复用锁串行化；迟到的恢复也拿同一把锁，避免两次快速触发互相覆盖。
 
 ### 4. 浏览器上下文：AX text marker 回退
 
@@ -98,16 +100,17 @@ Chrome 的 `AXValue` 是空的，`AXStringForRange` 也不支持；但 `AXTextMa
 - 每个 pass 用 `OCRQuality` 打分：平均置信度 + 字符数 + 行数，避免“只识别到一个高置信度单词”被当成最佳结果；最终仍交给 `OCRTextLayout` 重建行和段落。
 - 原图可靠时只跑一次，不为正常截图增加延迟。
 
-这一轮也核对了 `MoePeek` 的三级取词和 `invisible-translator` 的 `AXSelectedTextMarkerRange` 读取；两者证明第一轮的 text-marker 方向正确。`MoePeek` 的截图浮层保护和剪贴板访问门是后续可借鉴的可靠性点，但因其 AGPL-3.0，本次没有复制实现。
+这一轮也核对了 `MoePeek` 的三级取词和 `invisible-translator` 的 `AXSelectedTextMarkerRange` 读取；两者证明第一轮的 text-marker 方向正确。`MoePeek` 的截图浮层保护和剪贴板访问门进一步用于剪贴板兜底：浮层期间直接跳过合成 ⌘C，剪贴板操作串行化；因其 AGPL-3.0，本次只参考行为、独立实现，没有复制源码。
 
 ## 验证
 
 - `./scripts/build.sh`：**BUILD SUCCEEDED**
-- `xcodebuild test ...`：**Executed 24 tests, with 0 failures**
+- `xcodebuild test ...`：**Executed 27 tests, with 0 failures**
 - Chrome 本地页面：`selection-probe` 读到 214 字符选区 + 339 字符上下文
 - 剪贴板 probe：目标 Chrome 选区复制成功（214 字符），剪贴板快照 `restored: true`
 - OCR probe：对 0.4.0 设置页、深色背景白字、灰底灰字合成图均能识别；设置页输出 222 字符，同行碎片合并、段落空行符合预期
 - 鼠标点击点校验：`SelectionHitTest` 4 个单元测试覆盖元素内、20pt 容差边缘、远端拒绝和 Cocoa→AX 坐标翻转
+- 截图浮层检测：3 个单元测试覆盖全屏、半屏拒绝和跨显示器；正常桌面 probe 返回 `capturing=false`
 - 实机 Chrome 拖选：译图标正常出现，说明点校验没有误杀合法选区
 
 ## 已知边界
@@ -123,6 +126,5 @@ Chrome 的 `AXValue` 是空的，`AXStringForRange` 也不支持；但 `AXTextMa
 1. 给 Chromium 加“选区变化监听”，而不是每次取词才查 AX。
 2. 补键盘布局感知的 `⌘C` / `⌘V` 键码，参考 Cida 的 `TextEditingCommand` 思路。
 3. 把 OCR 版面算法扩展到多栏、表格和竖排。
-4. 参考 `MoePeek` 的行为，补截图浮层期间的剪贴板兜底保护，以及并发剪贴板访问门；不复制 AGPL 代码。
-5. 再考虑第二个翻译服务；在此之前不引入插件系统。
-6. 鼠标点校验目前只覆盖鼠标路径；键盘快捷键仍按用户显式操作读取选区，不做位置过滤。
+4. 再考虑第二个翻译服务；在此之前不引入插件系统。
+5. 鼠标点校验目前只覆盖鼠标路径；键盘快捷键仍按用户显式操作读取选区，不做位置过滤。
