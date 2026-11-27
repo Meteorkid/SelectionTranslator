@@ -245,7 +245,17 @@ actor HistoryStore {
     }
 
     private func csvEscape(_ value: String) -> String {
-        let escaped = value.replacingOccurrences(of: "\"", with: "\"\"")
+        // Spreadsheet apps evaluate formulas in CSV cells. A translation of a
+        // page-controlled string such as "=HYPERLINK(...)" must remain text,
+        // not execute when the user opens the export in Numbers/Excel.
+        let first = value.trimmingCharacters(in: .whitespacesAndNewlines).first
+        let formulaSafe: String
+        if let first, "=+-@".contains(first) {
+            formulaSafe = "'" + value
+        } else {
+            formulaSafe = value
+        }
+        let escaped = formulaSafe.replacingOccurrences(of: "\"", with: "\"\"")
         return "\"" + escaped + "\""
     }
 

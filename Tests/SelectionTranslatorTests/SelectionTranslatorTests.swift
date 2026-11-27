@@ -204,8 +204,21 @@ final class HistoryStoreTests: XCTestCase {
         let noMatch = try await store.records(accountID: accountID, search: "missing")
         XCTAssertTrue(noMatch.isEmpty)
 
+        let formulaRecord = QueryRecord(
+            accountID: accountID,
+            sourceText: "=HYPERLINK(\"https://example.com\")",
+            translatedText: "公式",
+            context: "",
+            appName: "UnitTest",
+            sourceKind: "accessibility",
+            engine: "model",
+            targetLanguage: "简体中文"
+        )
+        _ = try await store.insert(formulaRecord)
+
         try await store.exportCSV(accountID: accountID, to: csvURL)
         let csv = try String(contentsOf: csvURL, encoding: .utf8)
+        XCTAssertTrue(csv.contains("\"'=HYPERLINK("))
         XCTAssertTrue(csv.hasPrefix("created_at,source,translation"))
         XCTAssertTrue(csv.contains("\"译文\""))
         XCTAssertTrue(csv.contains("\"\"b\"\"") || csv.contains("\"a,\"\"b\"\"\nline\""))
