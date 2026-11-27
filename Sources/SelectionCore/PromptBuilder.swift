@@ -22,10 +22,24 @@ enum PromptBuilder {
         If the selection is already in \(target), explain it in \(target) instead.
         """
 
-        let glossary = request.glossary
-            .filter(\.isValid)
-            .map { "- \(neutralizeDelimiterBreakout($0.term.trimmingCharacters(in: .whitespacesAndNewlines))) => \(neutralizeDelimiterBreakout($0.translation.trimmingCharacters(in: .whitespacesAndNewlines)))" }
-            .joined(separator: "\n")
+        // Keep a very large user glossary from crowding out the selection
+        // and document. The UI has no hard count limit, so enforce a budget
+        // when building the prompt rather than sending an unbounded block.
+        var glossaryLines: [String] = []
+        var glossaryCharacters = 0
+        for entry in request.glossary.filter(\.isValid).prefix(64) {
+            let term = neutralizeDelimiterBreakout(
+                String(entry.term.trimmingCharacters(in: .whitespacesAndNewlines).prefix(200))
+            )
+            let translation = neutralizeDelimiterBreakout(
+                String(entry.translation.trimmingCharacters(in: .whitespacesAndNewlines).prefix(400))
+            )
+            let line = "- \(term) => \(translation)"
+            if glossaryCharacters + line.count + glossaryLines.count > 4_000 { break }
+            glossaryLines.append(line)
+            glossaryCharacters += line.count
+        }
+        let glossary = glossaryLines.joined(separator: "\n")
 
         if !glossary.isEmpty {
             user = """
