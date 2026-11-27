@@ -464,10 +464,16 @@ actor HistoryStore {
         cipher = retried
         if retried.isAvailable {
             lastCipherFailureAt = nil
+            migrateIfPossible()
         } else {
             lastCipherFailureAt = Date()
         }
         return retried
+    }
+
+    private func migrateIfPossible() {
+        guard !didMigrateLegacyRows, let database else { return }
+        didMigrateLegacyRows = (try? migrateLegacyRows(database)) ?? false
     }
 
     private func requireCipher() throws -> HistoryCipher {
@@ -490,6 +496,7 @@ actor HistoryStore {
             throw HistoryCipherError.keyUnavailable
         }
         lastCipherFailureAt = nil
+        migrateIfPossible()
         return retried
     }
 
