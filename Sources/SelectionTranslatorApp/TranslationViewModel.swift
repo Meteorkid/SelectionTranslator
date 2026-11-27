@@ -36,6 +36,7 @@ final class TranslationViewModel: ObservableObject {
     private var apiKey = ""
     private var accountID: UUID?
     private var didPersist = false
+    private var modelFallbackError: String?
 
     func start(capture: CaptureResult, settings: AppSettings, apiKey: String, accountID: UUID) {
         task?.cancel()
@@ -50,6 +51,7 @@ final class TranslationViewModel: ObservableObject {
         self.apiKey = apiKey
         self.accountID = accountID
         didPersist = false
+        modelFallbackError = nil
         recordID = nil
         isFavorite = false
         canFavorite = false
@@ -176,6 +178,7 @@ final class TranslationViewModel: ObservableObject {
             return
         }
         engineLabel = "系统翻译"
+        modelFallbackError = error?.localizedDescription
         errorMessage = nil
         requestSystemTranslation()
     }
@@ -195,6 +198,7 @@ final class TranslationViewModel: ObservableObject {
         }
         translation = trimmed
         errorMessage = nil
+        modelFallbackError = nil
         isStreaming = false
         needsSystemTranslation = false
         cacheAndPersist()
@@ -202,7 +206,11 @@ final class TranslationViewModel: ObservableObject {
 
     func applySystemTranslationError(_ message: String, token: UUID) {
         guard token == systemToken, needsSystemTranslation else { return }
-        errorMessage = message
+        if let modelFallbackError {
+            errorMessage = "模型请求失败：\(modelFallbackError)\n系统翻译也未完成：\(message)"
+        } else {
+            errorMessage = message
+        }
         isStreaming = false
         needsSystemTranslation = false
     }
@@ -327,6 +335,7 @@ final class TranslationViewModel: ObservableObject {
         apiKey = ""
         accountID = nil
         didPersist = false
+        modelFallbackError = nil
         sourceText = ""
         contextText = ""
         documentContextText = ""
