@@ -135,6 +135,7 @@ enum DocumentContextRepository {
             guard let data = Data(base64Encoded: stored), data.count == 32 else {
                 // A corrupt existing key should not be silently replaced:
                 // doing so would make existing encrypted contexts unreadable.
+                lastKeyFailureAt = Date()
                 return nil
             }
             let key = SymmetricKey(data: data)
@@ -148,6 +149,9 @@ enum DocumentContextRepository {
             let key = SymmetricKey(size: .bits256)
             let raw = key.withUnsafeBytes { Data($0) }
             guard KeychainStore.save(raw.base64EncodedString(), key: account) else {
+                // A denied Keychain add would otherwise retry on every key
+                // stroke and repeatedly show the system prompt.
+                lastKeyFailureAt = Date()
                 return nil
             }
             cachedKey = key
