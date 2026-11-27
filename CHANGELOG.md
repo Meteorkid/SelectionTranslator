@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased — 体验、翻译深度与隐私第二批
+## 0.4.2 — 2026-11-27
+
+阅读控制、隐私存储与 URL 调用边界；版本 `0.4.2 / build 7`。
 
 ### 翻译与阅读
 
@@ -24,6 +26,12 @@
 - 新增 `AdvancedFeatureTests`（设置迁移、提示词、长文裁剪、URL 限流、加密迁移）与 `HistoryStoreTests` 加密/迁移用例；测试密钥可注入，避免 Keychain 弹窗拖慢 CI。
 - 新增 `SelectionTranslatorUITests` 冒烟测试 target 与独立 scheme（首启授权卡、设置页翻译/上下文控件）；默认 XCTest 仍只跑单元测试，UI 测试需系统 UI Automation 权限。
 - 新增 GitHub Actions `CI`：XcodeGen 生成、Debug 构建、单元 XCTest。
+
+### 发布
+
+- 版本提升到 `0.4.2 / build 7`；Chrome、Safari 扩展 manifest 同步为 `0.4.2`。
+- 44 个 XCTest 全部通过；新增半迁移、URL 签名策略测试。
+- `SelectionTranslatorUITests` 独立 scheme 已加入，但运行仍依赖本机 UI Automation 授权，未计入本次发布验收。
 
 ## 0.4.1 — 2026-11-27
 

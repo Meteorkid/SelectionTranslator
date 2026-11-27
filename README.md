@@ -2,18 +2,17 @@
 
 一个 macOS 原生、轻量的阅读辅助 App。重点不是接更多翻译网站，而是把**选区所在的句子、段落和整篇文章**一起交给翻译引擎，让单词和句子在原文语境里解释，再用一个不抢焦点的浮窗展示结果。
 
-当前版本：**v0.4.1**（build 6）｜macOS 14+｜arm64｜Apache-2.0｜[下载最新版](https://github.com/Meteorkid/SelectionTranslator/releases/latest)｜[更新说明](docs/release-notes-0.4.1.md)
+当前版本：**v0.4.2**（build 7）｜macOS 14+｜arm64｜Apache-2.0｜[下载最新版](https://github.com/Meteorkid/SelectionTranslator/releases/latest)｜[更新说明](docs/release-notes-0.4.2.md)
 
-## 0.4.1 更新摘要
+## 0.4.2 更新摘要
 
-这一版把“可发布性”补齐：许可证、自动更新、隐私说明和首次启动引导全部落地，同时把 `0.4.0` 之后的取词/OCR 硬化一起收进正式包。
+这一版把阅读控制、隐私存储和外部调用边界补齐，同时保留 `0.4.1` 的许可证、自动更新和首启引导。
 
-- **Apache-2.0**：新增 `LICENSE`，`NOTICE` 补项目与第三方组件声明；App 内打包许可证与隐私文件。
-- **Sparkle 2 自动更新**：EdDSA 签名的 `appcast.xml`，每日自动检查，设置页和菜单栏都可手动检查；Sparkle 负责下载、签名验证和安装确认。
-- **隐私说明**：新增 `PRIVACY.md`，写清本机数据、联网时机、剪贴板/截图 OCR 边界和权限用途；首启页与设置页都有入口。
-- **首次启动引导**：用三张卡片说明「不会误取」「不会丢上下文」「不会打断截图」；老用户已有设置时自动跳过，不打断升级。
-- **取词与 OCR 硬化**：AX 超时、Chromium/Electron 预启用、安全输入保护、目标 PID 剪贴板降级、Chrome text-marker 上下文、OCR 多 pass 与段落拼接。
-- **验证**：`./scripts/build.sh` 通过；0.4.1 发布时 33 个 XCTest 全过；Sparkle feed 与 zip 签名均已校验。
+- **阅读控制**：五种译文风格、术语表、长文档选区窗口裁剪、从 PDF 导入上下文。
+- **体验**：选中后可直接翻译，按 App bundle ID 排除取词，首启页可现场申请辅助功能/屏幕录制权限。
+- **隐私**：整篇上下文与历史敏感字段均为 AES-GCM；历史数据库和上下文文件 `0600`，数据目录 `0700`；旧明文行自动迁移。
+- **URL 调用方校验**：解析 Apple Event 原始 sender，校验 bundle ID 与代码签名证书；浏览器、Finder、快捷指令等允许来源之外拒绝。
+- **验证**：`./scripts/build.sh` 通过；44 个 XCTest 全过；Sparkle feed 与 zip 签名均校验。UI 冒烟测试仍需要本机 UI Automation 授权。
 
 ## 界面
 
@@ -23,11 +22,11 @@ UI 使用一套集中定义的 macOS 视觉系统：品牌头、分组标题、�
 
 GitHub Releases：<https://github.com/Meteorkid/SelectionTranslator/releases/latest>
 
-- `SelectionTranslator-0.4.1.zip`：可直接打开的 App，**arm64 / Apache-2.0 / Apple Development 开发签名**，尚未用 Developer ID 公证。首次打开可能被 Gatekeeper 拦截，请在 Finder 里右键“打开”，或到系统设置里允许。
-- `SelectionTranslator-0.4.1-source.zip`：源码、脚本、浏览器扩展、设计文档和更新说明。
+- `SelectionTranslator-0.4.2.zip`：可直接打开的 App，**arm64 / Apache-2.0 / Apple Development 开发签名**，尚未用 Developer ID 公证。首次打开可能被 Gatekeeper 拦截，请在 Finder 里右键“打开”，或到系统设置里允许。
+- `SelectionTranslator-0.4.2-source.zip`：源码、脚本、浏览器扩展、设计文档和更新说明。
 - 也可以从源码构建；步骤见下方「构建与测试」。
 
-> 从 `0.4.0` 升级：旧版 `0.4.0` 的 zip 不含 Sparkle，不能自动更新到本版；请手动下载 `0.4.1` 覆盖安装一次。`0.4.1` 之后的小版本会通过 Sparkle 自动检查。
+> 从 `0.4.0` 升级：请手动下载 `0.4.2` 覆盖安装一次；`0.4.1` 及之后的版本已包含 Sparkle，可通过自动更新检查到本版。
 
 ## 已实现
 
@@ -92,7 +91,7 @@ https://github.com/Meteorkid/SelectionTranslator/releases/latest/download/appcas
 - 设置 → 数据与权限 → 更新：点“检查更新”；菜单栏也有同名入口。
 - Sparkle 负责下载、EdDSA 签名验证、解压与替换；`SUPublicEDKey` 已写入 Info.plist。
 - 自动检查每天最多一次；`SUAllowsAutomaticUpdates=false`，下载/安装前仍需你确认。
-- 当前 feed 以 `v0.4.1` 为基线；`0.4.1` 的 zip 已包含 Sparkle，后续版本可自动检查。
+- 当前 feed 以 `v0.4.2` 为基线；`0.4.1` 的 zip 已包含 Sparkle，后续版本可自动检查。
 
 更新信息不包含翻译内容、历史或 API Key。
 
@@ -154,7 +153,7 @@ xcodebuild test \
 3. 在网页里选中文字：选区旁会出现蓝色“译”按钮；也可以右键“用划词翻译翻译选中内容”，或按 `Ctrl+Shift+Y`。
 4. Chrome 首次会询问是否允许打开 `selectiontranslator://`，允许即可把内容交给本机 App。
 
-扩展发送 `text`、`context`、`document`、`app`、`title`、`source` 参数；App 会按当前账户的文档上下文与降级链处理。扩展清单版本与主 App 同步为 `0.4.1`。
+扩展发送 `text`、`context`、`document`、`app`、`title`、`source` 参数；App 会按当前账户的文档上下文与降级链处理。扩展清单版本与主 App 同步为 `0.4.2`。
 
 ### Safari
 
@@ -203,4 +202,4 @@ xcodebuild \
 - 当前只有 `Apple Development` 证书，无法完成 Developer ID 公证；`scripts/notarize.sh` 已准备好嵌套 Sparkle 组件的签名流程，但不会伪造“已公证”结果。
 - 不接 MDict、20+ 翻译服务、WebDAV、插件系统、多引擎并排；这些属于大型产品取舍，不是轻量 MVP 的优先项。
 
-更细的版本记录见 [`CHANGELOG.md`](CHANGELOG.md)、[`docs/release-notes-0.4.1.md`](docs/release-notes-0.4.1.md)、[`docs/v0.4.0-status.md`](docs/v0.4.0-status.md) 和 [`docs/easydict-review.md`](docs/easydict-review.md)。
+更细的版本记录见 [`CHANGELOG.md`](CHANGELOG.md)、[`docs/release-notes-0.4.2.md`](docs/release-notes-0.4.2.md)、[`docs/v0.4.0-status.md`](docs/v0.4.0-status.md) 和 [`docs/easydict-review.md`](docs/easydict-review.md)。
