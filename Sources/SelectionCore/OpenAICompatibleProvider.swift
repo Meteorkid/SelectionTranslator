@@ -4,6 +4,7 @@ enum ProviderError: LocalizedError {
     case invalidURL
     case missingAPIKey
     case http(Int, String)
+    case stream(String)
     case emptyResponse
 
     var errorDescription: String? {
@@ -15,6 +16,8 @@ enum ProviderError: LocalizedError {
         case .http(let code, let body):
             let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
             return "HTTP \(code)\(trimmed.isEmpty ? "" : ": \(trimmed.prefix(300))")"
+        case .stream(let message):
+            return "模型返回错误：\(message.prefix(300))"
         case .emptyResponse:
             return "模型没有返回内容"
         }
@@ -94,6 +97,14 @@ struct OpenAICompatibleProvider: Sendable {
                 break
             }
             guard let data = payload.data(using: .utf8) else { continue }
+            // Some OpenAI-compatible servers report mid-stream failures as a
+            // data frame with an error object instead of closing the stream.
+            if let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let error = object["error"] as? [String: Any],
+               let message = error["message"] as? String,
+               !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                throw ProviderError.stream(message)
+            }
             guard let chunk = try? JSONDecoder().decode(StreamChunk.self, from: data),
                   let content = chunk.choices.first?.delta.content,
                   !content.isEmpty else {

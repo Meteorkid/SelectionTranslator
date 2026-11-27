@@ -106,7 +106,8 @@ enum TranslationPipeline {
             settings.translationStyle.rawValue,
             settings.glossary
                 .filter(\.isValid)
-                .map { "\($0.term)=\($0.translation)" }
+                .prefix(64)
+                .map { "\($0.term.prefix(200))=\($0.translation.prefix(400))" }
                 .joined(separator: "\u{1F}"),
             settings.model,
             settings.apiBaseURL,
