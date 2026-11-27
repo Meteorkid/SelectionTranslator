@@ -175,39 +175,53 @@ final class AdvancedFeatureTests: XCTestCase {
     func testExternalURLCallerSignaturePolicy() {        let safari = ExternalURLCallerIdentity(
             bundleID: "com.apple.Safari",
             pid: 1,
-            certificateSummary: "Software Signing"
+            certificateSummary: "Software Signing",
+            signatureValid: true
         )
         let chrome = ExternalURLCallerIdentity(
             bundleID: "com.google.Chrome",
             pid: 1,
-            certificateSummary: "Developer ID Application: Google LLC (EQHXZ8M8AV)"
+            certificateSummary: "Developer ID Application: Google LLC (EQHXZ8M8AV)",
+            signatureValid: true
         )
         let fakeChrome = ExternalURLCallerIdentity(
             bundleID: "com.google.Chrome",
             pid: 1,
-            certificateSummary: "Developer ID Application: Example Corp (FAKE123456)"
+            certificateSummary: "Developer ID Application: Example Corp (FAKE123456)",
+            signatureValid: false
         )
         let fakeSafari = ExternalURLCallerIdentity(
             bundleID: "com.apple.Safari",
             pid: 1,
-            certificateSummary: "Developer ID Application: Example Corp (FAKE123456)"
+            certificateSummary: "Developer ID Application: Example Corp (FAKE123456)",
+            signatureValid: false
         )
         let shortcuts = ExternalURLCallerIdentity(
             bundleID: "com.apple.shortcuts",
             pid: 1,
-            certificateSummary: "Software Signing"
+            certificateSummary: "Software Signing",
+            signatureValid: true
         )
         XCTAssertTrue(ExternalURLCallerVerifier.isAllowed(safari))
         XCTAssertTrue(ExternalURLCallerVerifier.isAllowed(chrome))
         XCTAssertTrue(ExternalURLCallerVerifier.isAllowed(shortcuts))
         XCTAssertFalse(ExternalURLCallerVerifier.isAllowed(fakeChrome))
         XCTAssertFalse(ExternalURLCallerVerifier.isAllowed(fakeSafari))
+        XCTAssertFalse(ExternalURLCallerVerifier.isAllowed(
+            ExternalURLCallerIdentity(
+                bundleID: "com.apple.Safari",
+                pid: 1,
+                certificateSummary: "Software Signing",
+                signatureValid: false
+            )
+        ))
         XCTAssertFalse(ExternalURLCallerVerifier.isAllowed(nil))
         XCTAssertFalse(ExternalURLCallerVerifier.isAllowed(
             ExternalURLCallerIdentity(
                 bundleID: "com.example.malware",
                 pid: 1,
-                certificateSummary: "Developer ID Application: Example Corp (FAKE123456)"
+                certificateSummary: "Developer ID Application: Example Corp (FAKE123456)",
+                signatureValid: false
             )
         ))
     }

@@ -9,6 +9,22 @@ struct ExternalURLCallerIdentity {
     let bundleID: String
     let pid: pid_t
     let certificateSummary: String?
+    /// Set only after the live process's code requirement validates against
+    /// Apple's anchor or the vendor's Developer ID team. A certificate summary
+    /// alone is user-controlled data and is not proof of identity.
+    let signatureValid: Bool
+
+    init(
+        bundleID: String,
+        pid: pid_t,
+        certificateSummary: String?,
+        signatureValid: Bool
+    ) {
+        self.bundleID = bundleID
+        self.pid = pid
+        self.certificateSummary = certificateSummary
+        self.signatureValid = signatureValid
+    }
 }
 
 /// The custom URL scheme is a public entry point; any app can ask
@@ -74,16 +90,19 @@ enum ExternalURLCallerVerifier {
 
         guard let bundleID, !bundleID.isEmpty else { return nil }
         let certificateSummary = pid > 0 ? signingCertificateSummary(for: pid) : nil
+        let signatureValid = pid > 0 && validatesCodeRequirement(for: pid, bundleID: bundleID)
         return ExternalURLCallerIdentity(
             bundleID: bundleID,
             pid: pid,
-            certificateSummary: certificateSummary
+            certificateSummary: certificateSummary,
+            signatureValid: signatureValid
         )
     }
 
     static func isAllowed(_ identity: ExternalURLCallerIdentity?) -> Bool {
         guard let identity,
               allowedBundleIDs.contains(identity.bundleID),
+              identity.signatureValid,
               let certificate = identity.certificateSummary else {
             return false
         }
@@ -126,6 +145,42 @@ enum ExternalURLCallerVerifier {
     private static func runningApplication(pid: pid_t) -> NSRunningApplication? {
         guard pid > 0 else { return nil }
         return NSRunningApplication(processIdentifier: pid)
+    }
+
+    /// A subject-summary string can be forged by a self-signed certificate.
+    /// Validate the running code against an Apple-anchored requirement and,
+    /// for third-party browsers, the vendor's Developer ID team.
+    private static func validatesCodeRequirement(for pid: pid_t, bundleID: String) -> Bool {
+        guard let requirementString = codeRequirement(for: bundleID) else { return false }
+        var code: SecCode?
+        let attributes = [kSecGuestAttributePid: pid] as CFDictionary
+        guard SecCodeCopyGuestWithAttributes(nil, attributes, [], &code) == errSecSuccess,
+              let code else {
+            return false
+        }
+        var requirement: SecRequirement?
+        guard SecRequirementCreateWithString(
+            requirementString as CFString,
+            [],
+            &requirement
+        ) == errSecSuccess,
+              let requirement else {
+            return false
+        }
+        return SecCodeCheckValidity(code, [], requirement) == errSecSuccess
+    }
+
+    private static func codeRequirement(for bundleID: String) -> String? {
+        if let team = teamCertificates[bundleID] {
+            guard let teamID = team.split(separator: "(").last?.dropLast() else {
+                return nil
+            }
+            return "anchor apple generic and certificate leaf[subject.OU] = \"\(teamID)\""
+        }
+        if allowedBundleIDs.contains(bundleID) {
+            return "anchor apple"
+        }
+        return nil
     }
 
     private static func signingCertificateSummary(for pid: pid_t) -> String? {
