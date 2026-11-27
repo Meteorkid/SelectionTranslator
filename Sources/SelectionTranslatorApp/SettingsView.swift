@@ -833,10 +833,13 @@ struct SettingsView: View {
                     .controlSize(.small)
 
                     Button("清空") {
+                        guard DocumentContextRepository.clear(accountID: accountStore.activeID) else {
+                            documentContextError = "清空失败：无法删除文档上下文文件。"
+                            return
+                        }
                         documentContextLoaded = true
                         documentContextError = nil
                         documentContext = ""
-                        DocumentContextRepository.clear(accountID: accountStore.activeID)
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)

@@ -81,8 +81,7 @@ enum DocumentContextRepository {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         let value = String(trimmed.prefix(maxStoredCharacters))
         guard !value.isEmpty else {
-            clear(accountID: accountID)
-            return true
+            return clear(accountID: accountID)
         }
         guard let encrypted = encrypt(value) else {
             // Do not delete an existing context when the Keychain is
@@ -101,9 +100,18 @@ enum DocumentContextRepository {
         }
     }
 
-    static func clear(accountID: UUID) {
-        try? FileManager.default.removeItem(at: fileURL(accountID: accountID))
-        try? FileManager.default.removeItem(at: legacyFileURL(accountID: accountID))
+    @discardableResult
+    static func clear(accountID: UUID) -> Bool {
+        var success = true
+        for url in [fileURL(accountID: accountID), legacyFileURL(accountID: accountID)] {
+            guard FileManager.default.fileExists(atPath: url.path) else { continue }
+            do {
+                try FileManager.default.removeItem(at: url)
+            } catch {
+                success = false
+            }
+        }
+        return success
     }
 
     private static let keyLock = NSLock()
