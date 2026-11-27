@@ -132,6 +132,7 @@ final class AppState: ObservableObject {
                 )
                 return
             }
+            guard !Task.isCancelled else { return }
             self.translate(capture)
         }
     }
@@ -178,6 +179,7 @@ final class AppState: ObservableObject {
                     guard let self else { return }
                     do {
                         let text = try await OCRService.recognize(image: pastedImage)
+                        guard !Task.isCancelled else { return }
                         self.translate(
                             CaptureResult(
                                 selectedText: String(text.prefix(8_000)),
@@ -227,6 +229,7 @@ final class AppState: ObservableObject {
             guard let self else { return }
             do {
                 let text = try await OCRService.captureInteractiveText()
+                guard !Task.isCancelled else { return }
                 guard !text.isEmpty else {
                     self.panelController.showError("没有识别到文字。")
                     return
@@ -263,6 +266,7 @@ final class AppState: ObservableObject {
             guard let self else { return }
             do {
                 let text = try await OCRService.captureInteractiveText()
+                guard !Task.isCancelled else { return }
                 let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !trimmed.isEmpty else {
                     self.panelController.showError("没有识别到文字。")
