@@ -74,6 +74,8 @@ struct SettingsView: View {
     @State private var renameText = ""
     @State private var showingDeleteAccount = false
     @State private var documentContext = ""
+    @State private var documentContextLoaded = true
+    @State private var documentContextError: String?
     @State private var newGlossaryTerm = ""
     @State private var newGlossaryTranslation = ""
     @State private var pdfImportMessage: String?
@@ -128,22 +130,28 @@ struct SettingsView: View {
             apiKeySaveTask?.cancel()
             KeychainStore.save(apiKey, key: "apiKey")
             documentSaveTask?.cancel()
-            DocumentContextRepository.write(documentContext, accountID: accountStore.activeID)
+            if documentContextLoaded {
+                DocumentContextRepository.write(documentContext, accountID: accountStore.activeID)
+            }
         }
         .onAppear {
             accessibilityTrusted = Permissions.isAccessibilityTrusted(prompt: false)
             screenRecordingTrusted = Permissions.hasScreenRecordingPermission()
             refreshOllama()
             refreshProfileStats()
-            documentContext = DocumentContextRepository.read(accountID: accountStore.activeID)
+            loadDocumentContext()
         }
         .onChange(of: accountStore.activeID) { _, _ in
             documentSaveTask?.cancel()
             refreshProfileStats()
-            documentContext = DocumentContextRepository.read(accountID: accountStore.activeID)
+            loadDocumentContext()
             ankiHealth = nil
         }
         .onChange(of: documentContext) { _, newValue in
+            // Never auto-save a failed load back to disk: a Keychain denial
+            // must not look like an empty document and delete the encrypted
+            // context during the initial render.
+            guard documentContextLoaded else { return }
             // Encrypting and writing the whole article on every keystroke
             // causes visible input lag. Coalesce edits into one write.
             documentSaveTask?.cancel()
@@ -785,6 +793,8 @@ struct SettingsView: View {
                     .controlSize(.small)
 
                     Button("清空") {
+                        documentContextLoaded = true
+                        documentContextError = nil
                         documentContext = ""
                         DocumentContextRepository.clear(accountID: accountStore.activeID)
                     }
@@ -796,6 +806,14 @@ struct SettingsView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.small)
+                    .disabled(!documentContextLoaded)
+                }
+
+                if let documentContextError {
+                    Text(documentContextError)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 Toggle("翻译时使用这篇文档作为上下文", isOn: $store.settings.useDocumentContext)
@@ -1180,6 +1198,26 @@ struct SettingsView: View {
         store.settings.apiBaseURL = preset.baseURL
         store.settings.model = preset.model
         health = nil
+    }
+
+    private func loadDocumentContext() {
+        documentSaveTask?.cancel()
+        switch DocumentContextRepository.loadResult(accountID: accountStore.activeID) {
+        case .loaded(let text):
+            documentContextLoaded = true
+            documentContextError = nil
+            documentContext = text
+        case .empty:
+            documentContextLoaded = true
+            documentContextError = nil
+            documentContext = ""
+        case .unavailable:
+            // Keep the editor read-only for persistence until the key is
+            // available again; do not schedule a save over the encrypted file.
+            documentContextLoaded = false
+            documentContext = ""
+            documentContextError = "无法读取已加密的文档上下文。请检查钥匙串访问权限后重新打开设置；为避免覆盖原文件，自动保存已暂停。"
+        }
     }
 
     private func importPDF() {

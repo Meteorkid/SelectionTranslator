@@ -35,17 +35,39 @@ enum DocumentContextRepository {
         directory.appendingPathComponent("document-context-\(accountID.uuidString).txt")
     }
 
+    enum LoadResult: Equatable {
+        case loaded(String)
+        case empty
+        case unavailable
+    }
+
+    /// A plain string is enough for translation paths. The settings UI uses
+    /// `loadResult` so a Keychain denial cannot look like "the user cleared
+    /// the context" and trigger an auto-save that deletes the encrypted file.
     static func read(accountID: UUID) -> String {
-        if let data = try? Data(contentsOf: fileURL(accountID: accountID)),
-           let text = decrypt(data) {
-            return String(text.prefix(maxStoredCharacters))
+        switch loadResult(accountID: accountID) {
+        case .loaded(let text):
+            return text
+        case .empty, .unavailable:
+            return ""
+        }
+    }
+
+    static func loadResult(accountID: UUID) -> LoadResult {
+        if let data = try? Data(contentsOf: fileURL(accountID: accountID)) {
+            guard let text = decrypt(data) else {
+                return .unavailable
+            }
+            return .loaded(String(text.prefix(maxStoredCharacters)))
         }
 
         guard let data = try? Data(contentsOf: legacyFileURL(accountID: accountID)),
-              let text = String(data: data, encoding: .utf8) else { return "" }
+              let text = String(data: data, encoding: .utf8) else { return .empty }
         write(text, accountID: accountID)
-        try? FileManager.default.removeItem(at: legacyFileURL(accountID: accountID))
-        return String(text.prefix(maxStoredCharacters))
+        if FileManager.default.fileExists(atPath: fileURL(accountID: accountID).path) {
+            try? FileManager.default.removeItem(at: legacyFileURL(accountID: accountID))
+        }
+        return .loaded(String(text.prefix(maxStoredCharacters)))
     }
 
     static func write(_ text: String, accountID: UUID) {

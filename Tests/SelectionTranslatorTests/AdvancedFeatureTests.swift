@@ -272,5 +272,19 @@ final class AdvancedFeatureTests: XCTestCase {
 
         DocumentContextRepository.clear(accountID: accountID)
         XCTAssertEqual(DocumentContextRepository.read(accountID: accountID), "")
+
+        // A different key models a Keychain denial for an existing file. It
+        // must not be interpreted as an empty document, and a settings auto-save
+        // must not overwrite the original file.
+        DocumentContextRepository.write("不能丢的上下文", accountID: accountID)
+        DocumentContextRepository.keyOverride = Data(repeating: 0x43, count: 32)
+        XCTAssertEqual(
+            DocumentContextRepository.loadResult(accountID: accountID),
+            .unavailable
+        )
+        XCTAssertEqual(DocumentContextRepository.read(accountID: accountID), "")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: encryptedURL.path))
+        DocumentContextRepository.keyOverride = Data(repeating: 0x42, count: 32)
+        XCTAssertEqual(DocumentContextRepository.read(accountID: accountID), "不能丢的上下文")
     }
 }
