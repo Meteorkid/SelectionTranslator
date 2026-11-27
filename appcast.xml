@@ -1,8 +1,20 @@
-<?xml version="1.0" standalone="yes"?><!-- sparkle-sign-warning:
+<?xml version="1.0" standalone="yes"?>
+<!-- sparkle-sign-warning:
 IMPORTANT: This file was signed by Sparkle. Any modifications to this file requires re-signing this file with generate_appcast or sign_update! The signed signature will be embedded at the end of this file.
---><rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+-->
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
     <channel>
         <title>SelectionTranslator</title>
+        <item>
+            <title>0.4.1</title>
+            <pubDate>Fri, 27 Nov 2026 17:51:13 +0800</pubDate>
+            <sparkle:version>6</sparkle:version>
+            <sparkle:shortVersionString>0.4.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <sparkle:releaseNotesLink>https://github.com/Meteorkid/SelectionTranslator/releases/download/v0.4.1/SelectionTranslator-0.4.1.md</sparkle:releaseNotesLink>
+            <enclosure url="https://github.com/Meteorkid/SelectionTranslator/releases/download/v0.4.1/SelectionTranslator-0.4.1.zip" length="3763493" type="application/octet-stream" sparkle:edSignature="Cre1f1qBgW+eptImT3Bk1V9lbjHZGmQ6WX41QZf2Y2hvmkaYKhkq7mu6KaOpAK8PLpRpxU87gB7EXw4nTkiVAQ=="/>
+        </item>
         <item>
             <title>0.4.0</title>
             <pubDate>Fri, 27 Nov 2026 17:11:13 +0800</pubDate>
@@ -11,10 +23,11 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
             <sparkle:releaseNotesLink>https://github.com/Meteorkid/SelectionTranslator/releases/download/v0.4.0/SelectionTranslator-0.4.0.md</sparkle:releaseNotesLink>
-            <enclosure url="https://github.com/Meteorkid/SelectionTranslator/releases/download/v0.4.0/SelectionTranslator-0.4.0.zip" length="2646732" type="application/octet-stream" sparkle:edSignature="xgQypVbLL2WmOp7+3UhupcaDwfrZitJt1hOIP33t/5QtqExkPJM2lgjUbnS9J+15HIDeEURQ7ibd8pM1fGHxAQ=="></enclosure>
+            <enclosure url="https://github.com/Meteorkid/SelectionTranslator/releases/download/v0.4.0/SelectionTranslator-0.4.0.zip" length="2646732" type="application/octet-stream" sparkle:edSignature="xgQypVbLL2WmOp7+3UhupcaDwfrZitJt1hOIP33t/5QtqExkPJM2lgjUbnS9J+15HIDeEURQ7ibd8pM1fGHxAQ=="/>
         </item>
     </channel>
-</rss><!-- sparkle-signatures:
-edSignature: +Ct8bsHVsGimqcF+UoWvaxvpGRldKVNNCXqYX159Z28k9QCvjxztWdM/JeDQu10tBGp6WT0XVf03vIiNe3mWAg==
-length: 1322
+</rss>
+<!-- sparkle-signatures:
+edSignature: ulhWjosRelC341Pn6jUPOJPPeTtXoWT9bS636m7t3eSnZe8A2C9+/JAVPdTQqo2aUImKQzOw8qLJq55uXxPODw==
+length: 2185
 -->

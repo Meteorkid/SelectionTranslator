@@ -87,10 +87,23 @@ import sys
 from pathlib import Path
 path, version, tag = sys.argv[1], sys.argv[2], sys.argv[3]
 text = Path(path).read_text()
-text = text.replace(
-    f">SelectionTranslator-{version}.md<",
-    f">https://github.com/Meteorkid/SelectionTranslator/releases/download/{tag}/SelectionTranslator-{version}.md<",
-)
+relative = f">SelectionTranslator-{version}.md<"
+latest = f"https://github.com/Meteorkid/SelectionTranslator/releases/latest/download/SelectionTranslator-{version}.md"
+asset = f"https://github.com/Meteorkid/SelectionTranslator/releases/download/{tag}/SelectionTranslator-{version}.md"
+text = text.replace(latest, asset)
+text = text.replace(relative, f">{asset}<")
+Path(path).write_text(text)
+PY
+
+# Release notes are plain Markdown assets, not signed Sparkle archives.
+# generate_appcast may add a signature for the notes file; drop it so the
+# uploaded docs/release-notes-<version>.md remains the exact file Sparkle reads.
+python3 - "$WORK/appcast.xml" <<'PY'
+import re, sys
+from pathlib import Path
+path = sys.argv[1]
+text = Path(path).read_text()
+text = re.sub(r'<sparkle:releaseNotesLink[^>]*>', '<sparkle:releaseNotesLink>', text)
 Path(path).write_text(text)
 PY
 

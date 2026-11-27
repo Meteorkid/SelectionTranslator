@@ -2,21 +2,32 @@
 
 一个 macOS 原生、轻量的阅读辅助 App。重点不是接更多翻译网站，而是把**选区所在的句子、段落和整篇文章**一起交给翻译引擎，让单词和句子在原文语境里解释，再用一个不抢焦点的浮窗展示结果。
 
-当前版本：**v0.4.0**（build 5）。Swift/AppKit/SwiftUI 单 App，无第三方运行时依赖。
+当前版本：**v0.4.1**（build 6）｜macOS 14+｜arm64｜Apache-2.0｜[下载最新版](https://github.com/Meteorkid/SelectionTranslator/releases/latest)｜[更新说明](docs/release-notes-0.4.1.md)
 
-> `main` 上还有一组 0.4.0 之后的取词/OCR 硬化改动，尚未改变已发布的 v0.4.0 Release；实现对照见 [`docs/open-source-capture-ocr-review.md`](docs/open-source-capture-ocr-review.md)。
+## 0.4.1 更新摘要
+
+这一版把“可发布性”补齐：许可证、自动更新、隐私说明和首次启动引导全部落地，同时把 `0.4.0` 之后的取词/OCR 硬化一起收进正式包。
+
+- **Apache-2.0**：新增 `LICENSE`，`NOTICE` 补项目与第三方组件声明；App 内打包许可证与隐私文件。
+- **Sparkle 2 自动更新**：EdDSA 签名的 `appcast.xml`，每日自动检查，设置页和菜单栏都可手动检查；Sparkle 负责下载、签名验证和安装确认。
+- **隐私说明**：新增 `PRIVACY.md`，写清本机数据、联网时机、剪贴板/截图 OCR 边界和权限用途；首启页与设置页都有入口。
+- **首次启动引导**：用三张卡片说明「不会误取」「不会丢上下文」「不会打断截图」；老用户已有设置时自动跳过，不打断升级。
+- **取词与 OCR 硬化**：AX 超时、Chromium/Electron 预启用、安全输入保护、目标 PID 剪贴板降级、Chrome text-marker 上下文、OCR 多 pass 与段落拼接。
+- **验证**：`./scripts/build.sh` 通过；33 个 XCTest 全过；Sparkle feed 与 zip 签名均已校验。
 
 ## 界面
 
 UI 使用一套集中定义的 macOS 视觉系统：品牌头、分组标题、状态徽章、统计块、材质浮窗，以及无边框圆角翻译面板。设置页可在 **原生（默认）** 和 **液态玻璃** 两套外观之间切换；液态玻璃用环境渐变、系统玻璃胶囊和半透明表面覆盖设置、浮窗、输入翻译、历史/生词本和提示面板。设计记录与截图见 [`docs/ui-redesign.md`](docs/ui-redesign.md) 和 [`docs/liquid-glass.md`](docs/liquid-glass.md)。
 
-## 下载
+## 下载与安装
 
-GitHub Releases：<https://github.com/Meteorkid/SelectionTranslator/releases>
+GitHub Releases：<https://github.com/Meteorkid/SelectionTranslator/releases/latest>
 
-- `SelectionTranslator-0.4.0.zip`：可直接打开的 App，当前为 **arm64 / Apache-2.0 / Apple Development 开发签名**，尚未用 Developer ID 公证。首次打开可能被 Gatekeeper 拦截，需要在 Finder 里右键“打开”，或到系统设置里允许。
-- `SelectionTranslator-0.4.0-source.zip`：源码、脚本、浏览器扩展和设计文档。
-- 也可以从源码构建；步骤见下方「构建」。
+- `SelectionTranslator-0.4.1.zip`：可直接打开的 App，**arm64 / Apache-2.0 / Apple Development 开发签名**，尚未用 Developer ID 公证。首次打开可能被 Gatekeeper 拦截，请在 Finder 里右键“打开”，或到系统设置里允许。
+- `SelectionTranslator-0.4.1-source.zip`：源码、脚本、浏览器扩展、设计文档和更新说明。
+- 也可以从源码构建；步骤见下方「构建与测试」。
+
+> 从 `0.4.0` 升级：旧版 `0.4.0` 的 zip 不含 Sparkle，不能自动更新到本版；请手动下载 `0.4.1` 覆盖安装一次。`0.4.1` 之后的小版本会通过 Sparkle 自动检查。
 
 ## 已实现
 
@@ -40,7 +51,7 @@ GitHub Releases：<https://github.com/Meteorkid/SelectionTranslator/releases>
 - 跨 App 取词硬化：Chrome/Electron 切前台时预启用 AX 树；Chromium 通过 AX text marker 补全文和上下文；只有 `AXSelectedTextMarkerRange` 的 WebKit/Chromium 选区也能取词；AX 调用有 0.20s 超时；system-wide 焦点回退校验前台 PID
 - 剪贴板降级安全化：目标 PID 定向复制、等待 `changeCount`、保留/恢复剪贴板快照，文件复制不会被当成选中文字；截图工具浮层期间跳过；并发触发串行化
 - Safari Web Extension：已生成并签名 `browser-extension/safari-project`，在 Safari 里启用并授予“所有网站”权限后，选区浮标 → 外部协议 → App 面板的端到端链路已走通
-- Sparkle 自动更新：`appcast.xml` + EdDSA 签名，设置页与菜单都可手动检查；Sparkle 负责下载、验证与安装
+- Sparkle 自动更新：`appcast.xml` + EdDSA 签名，设置页与菜单都可手动检查；Sparkle 负责下载、验证与安装确认
 - 自动化回归：`SelectionTranslatorTests` 共 33 个 XCTest 用例，覆盖 URL 解析、设置迁移（含外观回退）、Prompt、缓存 key、首启标记、History/CSV、OCR 版面/段落拼接/多 pass 评分、鼠标点校验、截图浮层检测、marker 范围反查
 - URL Scheme：`selectiontranslator://translate?...`、`clipboard`、`input`、`ocr`、`silent-ocr`、`library`、`settings`
 - 52 种目标语言目录，系统翻译与模型可用性因语言而异
@@ -70,7 +81,39 @@ GitHub Releases：<https://github.com/Meteorkid/SelectionTranslator/releases>
 
 截图 OCR 和静默 OCR 需要 macOS「屏幕录制」权限。未授权时 App 会显示一次说明并提供“打开系统设置”，不会替你反复弹系统窗。
 
-## 构建
+## 更新机制
+
+App 使用 Sparkle 2 做自动更新，feed 是 GitHub Release 的 `appcast.xml`：
+
+```text
+https://github.com/Meteorkid/SelectionTranslator/releases/latest/download/appcast.xml
+```
+
+- 设置 → 数据与权限 → 更新：点“检查更新”；菜单栏也有同名入口。
+- Sparkle 负责下载、EdDSA 签名验证、解压与替换；`SUPublicEDKey` 已写入 Info.plist。
+- 自动检查每天最多一次；`SUAllowsAutomaticUpdates=false`，下载/安装前仍需你确认。
+- 当前 feed 以 `v0.4.1` 为基线；`0.4.1` 的 zip 已包含 Sparkle，后续版本可自动检查。
+
+更新信息不包含翻译内容、历史或 API Key。
+
+## 文档上下文与 Anki
+
+- 设置 → 上下文：粘贴文章，按账户保存；翻译时最多发送 6,000 字符，可在 1,000–12,000 之间调整。
+- 设置 → 上下文 → Anki：安装 Anki 与 AnkiConnect 插件（代码 `2055492159`），填地址 `http://127.0.0.1:8765`，测试连接后可发送收藏。
+- 历史与生词本 → 导出：JSONL 或 CSV；CSV 可直接给表格软件或 Anki 导入。
+
+## 数据位置
+
+```text
+~/Library/Application Support/SelectionTranslator/
+├── profiles.json                         # 本地账户
+├── history.sqlite3                       # 历史 + 生词本
+└── document-context-<account-uuid>.txt   # 当前账户的整篇上下文
+```
+
+API Key 存在 Keychain（service `com.meteor.SelectionTranslator`，account `apiKey`）。没有云端同步，也没有账号密码。
+
+## 构建与测试
 
 环境：macOS 14+、Xcode 16+、XcodeGen。
 
@@ -80,9 +123,9 @@ brew install xcodegen
 open build/DerivedData/Build/Products/Debug/SelectionTranslator.app
 ```
 
-`build.sh` 会重新生成工程、构建并优先使用本机 `Apple Development` 证书签名；没有证书时退回 ad-hoc。
+`build.sh` 会重新生成工程、构建并优先使用本机 `Apple Development` 证书签名；没有证书时退回 ad-hoc。Sparkle 通过 Swift Package Manager 引入，首次构建会解析 `https://github.com/sparkle-project/Sparkle`。
 
-## 测试
+测试：
 
 ```bash
 xcodebuild test \
@@ -103,7 +146,7 @@ xcodebuild test \
 3. 在网页里选中文字：选区旁会出现蓝色“译”按钮；也可以右键“用划词翻译翻译选中内容”，或按 `Ctrl+Shift+Y`。
 4. Chrome 首次会询问是否允许打开 `selectiontranslator://`，允许即可把内容交给本机 App。
 
-扩展发送 `text`、`context`、`document`、`app`、`title`、`source` 参数；App 会按当前账户的文档上下文与降级链处理。
+扩展发送 `text`、`context`、`document`、`app`、`title`、`source` 参数；App 会按当前账户的文档上下文与降级链处理。扩展清单版本与主 App 同步为 `0.4.1`。
 
 ### Safari
 
@@ -135,54 +178,21 @@ xcodebuild \
 
 如果只需要在当前 Mac 上使用，App 的 `⌥D` 划词快捷键不依赖浏览器扩展，也可以工作。
 
-## 检查更新
+## 隐私与许可
 
-App 使用 Sparkle 2 做自动更新，feed 是仓库根目录的 `appcast.xml`：
-
-```text
-https://github.com/Meteorkid/SelectionTranslator/releases/latest/download/appcast.xml
-```
-
-- 设置 → 数据与权限 → 更新：点“检查更新”；菜单栏也有同名入口。
-- Sparkle 负责下载、EdDSA 签名验证、解压与替换；`SUPublicEDKey` 已写入 Info.plist。
-- 自动检查每天最多一次；`SUAllowsAutomaticUpdates=false`，下载/安装前仍需你确认。
-- 当前 feed 以已发布的 `v0.4.0` 为基线；旧的 zip 不含 Sparkle，所以这一版不会自我更新。发布 0.4.1 时用 `scripts/appcast.sh` 生成新条目并上传对应 zip。
-
-更新信息不包含翻译内容、历史或 API Key。
-
-## 文档上下文与 Anki
-
-- 设置 → 上下文：粘贴文章，按账户保存；翻译时最多发送 6,000 字符，可在 1,000–12,000 之间调整。
-- 设置 → 上下文 → Anki：安装 Anki 与 AnkiConnect 插件（代码 `2055492159`），填地址 `http://127.0.0.1:8765`，测试连接后可发送收藏。
-- 历史与生词本 → 导出：JSONL 或 CSV；CSV 可直接给表格软件或 Anki 导入。
-
-## 数据位置
-
-```text
-~/Library/Application Support/SelectionTranslator/
-├── profiles.json                         # 本地账户
-├── history.sqlite3                       # 历史 + 生词本
-├── document-context-<account-uuid>.txt   # 当前账户的整篇上下文
-```
-
-API Key 存在 Keychain（service `com.meteor.SelectionTranslator`，account `apiKey`）。没有云端同步，也没有账号密码。
+- 隐私说明：[`PRIVACY.md`](PRIVACY.md)；App 内“设置 → 隐私与引导”和首启页都有入口。
+- 许可证：Apache License 2.0，全文见 [`LICENSE`](LICENSE)。
+- 第三方组件：Sparkle（MIT）、ECDICT（MIT），详见 `Support/Resources/NOTICE.md`。
+- 默认不接入分析 SDK、崩溃上报或云端账户；只有主动翻译、打开 AnkiConnect、检查更新时才会联网。
 
 ## 已知边界
 
 - 52 种语言只是目录；实际能否翻译取决于系统语言包或模型能力。
 - 系统词典使用 macOS `DCSCopyTextDefinition`，不同系统版本的词条质量不同。
 - 浏览器扩展通过外部 URL Scheme 拉起 App，首次需要用户在浏览器里允许；没有内置本地 HTTP server。
-- Chrome 扩展已在干净测试 profile 完成“安装 → 浮标 → 点击 → 拉起 App”的端到端验收；Safari 已在 `safari-project` 构建、签名并完成“启用 → 浮标 → 拉起 App”的端到端验收。用户日常浏览器仍需手动加载/启用一次。
+- Chrome 扩展已在干净测试 profile 完成“安装 → 浮标 → 点击 → 拉起 App”的端到端验收；Safari 已在 `safari-project` 构建、签名并完成“启用 → 浮标 → 拉起 App”的端到端验收。日常浏览器仍需手动加载/启用一次。
 - 截图 OCR / 静默 OCR 需要屏幕录制权限；本机已授权并完成一次交互式框选 OCR，但 OCR 对选区质量敏感，识别率不等于完美。未授权时 App 只提示一次，不反复弹系统窗。
-- 本机当前只有 `Apple Development` 证书，无法完成 Developer ID 公证；`scripts/notarize.sh` 已准备好，但不会伪造“已公证”结果。
-- Sparkle 已接入；当前 `appcast.xml` 指向 v0.4.0 的旧 zip，它不含 Sparkle，因此这一版不会自动更新到自身。下一次发布才真正闭环。
-- 当前仍是 `Apple Development` 开发签名，未完成 Developer ID 公证；`notarize.sh` 已更新为对 Sparkle 嵌套组件重签，但需要证书与 notary profile 才能实际跑。
+- 当前只有 `Apple Development` 证书，无法完成 Developer ID 公证；`scripts/notarize.sh` 已准备好嵌套 Sparkle 组件的签名流程，但不会伪造“已公证”结果。
 - 不接 MDict、20+ 翻译服务、WebDAV、插件系统、多引擎并排；这些属于大型产品取舍，不是轻量 MVP 的优先项。
 
-## 隐私与许可
-
-- 隐私说明：[`PRIVACY.md`](PRIVACY.md)（App 内“设置 → 隐私与引导”和首启页都有入口）。
-- 许可证：Apache License 2.0，全文见 [`LICENSE`](LICENSE)。
-- 第三方组件：Sparkle（MIT）、ECDICT（MIT），详见 `Support/Resources/NOTICE.md`。
-
-更细的对照与验收记录见 `docs/v0.4.0-status.md` 和 `docs/easydict-review.md`。
+更细的版本记录见 [`CHANGELOG.md`](CHANGELOG.md)、[`docs/release-notes-0.4.1.md`](docs/release-notes-0.4.1.md)、[`docs/v0.4.0-status.md`](docs/v0.4.0-status.md) 和 [`docs/easydict-review.md`](docs/easydict-review.md)。

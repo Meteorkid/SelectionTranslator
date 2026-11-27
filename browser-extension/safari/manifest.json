@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "SelectionTranslator for Safari",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "把 Safari 选区连同上下文发送给本机 SelectionTranslator。",
   "permissions": [
     "activeTab"

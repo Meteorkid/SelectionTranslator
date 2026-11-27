@@ -1,22 +1,52 @@
 # Changelog
 
-## Unreleased — 0.4.0 之后
+## 0.4.1 — 2026-11-27
 
-- 许可证改为 Apache License 2.0，新增 `LICENSE`、`NOTICE` 中的项目声明，并随 App 一起打包。
-- 更新检查从轻量 JSON 切换为 Sparkle 2：`appcast.xml`、EdDSA 公钥、`SUFeedURL`/`SUPublicEDKey`、每日自动检查与手动检查。
-- 新增 `PRIVACY.md`，说明本机数据、联网时机、剪贴板/屏幕/权限边界；设置页新增“查看隐私说明”入口。
-- 新增首次启动引导，明确“不会误取、不会丢上下文、不会打断截图”，并可用“重新查看首次引导”再次打开；XCTest 仍为 33 个。
-- 浏览器/Electron AX 树预启用，Chrome 原生取词补上 AX text marker 上下文。
-- AX 调用增加 0.20s 超时；Chromium 聚焦元素 bounded fallback；安全输入和密码字段 fail closed；system-wide 焦点回退校验前台 PID。
-- 剪贴板降级改为目标 PID + `changeCount` + 快照恢复，文件复制不当作选中文字。
-- 鼠标划词增加焦点元素 bounds + 20pt 容差校验，点击工具栏/侧边栏时不会把旧选区当成新选区。
-- OCR 增加语言自动检测、同行碎片合并和段落间距重建；新增 4 个 OCR 版面测试，XCTest 共 17 个。
-- OCR 增加低置信度多 pass：灰度/对比度/锐化增强、深色反色兜底、按置信度/字符数/行数评分；新增 3 个质量与增强测试，XCTest 共 20 个。
-- 鼠标划词增加点击点校验，新增 4 个单元测试；XCTest 共 24 个。
-- 剪贴板兜底增加截图浮层检测和串行化锁，避免截屏浮层吞掉 ⌘C、并发触发互相覆盖；新增 3 个浮层几何测试，XCTest 共 27 个。
-- 取词增加 `AXSelectedTextMarkerRange` 兜底；无 `AXSelectedTextRange` 时用选中文本反查全文范围恢复上下文；新增 3 个反查测试，XCTest 共 30 个。
-- OCR 版面增加段落拼接：英文/中文续行合并，列表项和明显行距保留换行；新增 3 个版面测试，XCTest 共 33 个。
-- 细节见 `docs/open-source-capture-ocr-review.md`；未改变 v0.4.0 Release。
+这一版把 `0.4.0` 之后的取词/OCR 硬化收进正式包，并补齐许可证、Sparkle 自动更新、隐私说明和首启引导。
+
+### 许可证与发布
+
+- 许可证改为 Apache License 2.0，新增 `LICENSE`；`NOTICE` 补项目与 Sparkle/ECDICT 第三方声明。
+- `LICENSE`、`PRIVACY.md`、`NOTICE.md` 随 App 打包到 `Contents/Resources`，源码包同步包含。
+- 版本提升到 `0.4.1 / build 6`；浏览器扩展 manifest 同步到 `0.4.1`。
+- `scripts/build.sh` 指定 SPM checkout 路径并使用 deep codesign；`scripts/notarize.sh` 增加 Sparkle 嵌套组件重签顺序。
+
+### Sparkle 自动更新
+
+- 更新检查从轻量 JSON 切换为 Sparkle 2：SPM 引入 `Sparkle`，target 依赖 `package: Sparkle`。
+- `Info.plist` 写入 `SUFeedURL`、`SUPublicEDKey`、`SUEnableAutomaticChecks=true`、`SUScheduledCheckInterval=86400`、`SUAllowsAutomaticUpdates=false`。
+- 新增 `SparkleUpdater`：`SPUStandardUpdaterController` 管理更新，支持 gentle scheduled reminders；设置页和菜单栏都可手动检查。
+- 删除旧 `UpdateChecker`、`updateFeedURL`、`checkForUpdatesOnLaunch` 与其测试；不再保留 JSON fallback。
+- 新增已签名的 `appcast.xml` 与 `scripts/appcast.sh`：生成条目、逐条注入 EdDSA 签名、签名 feed 并校验。
+- 私钥只保存在本机 `~/Library/Application Support/SelectionTranslator/Sparkle/ed25519.key`（0600），不进入仓库。
+
+### 隐私与首次启动
+
+- 新增 `PRIVACY.md`：本机 SQLite/JSON/上下文文件、UserDefaults、Keychain 的用途；主动翻译、系统翻译、AnkiConnect、Sparkle 检查四类联网时机；剪贴板/截图/权限边界。
+- 首启页新增三张卡：**不会误取、不会丢上下文、不会打断截图**；底部有隐私说明和「开始使用」。
+- 新增 `OnboardingState`，以 `SelectionTranslator.onboardingCompleted.v1` 记录；已有设置的老用户自动跳过，不打断升级；设置页可「重新查看首次引导」。
+- 设置页「数据与权限」新增「更新」「隐私与引导」区块。
+
+### 取词可靠性
+
+- Chrome/Electron 切前台时预启用 AX 树；Chromium 原生取词补上 AX text marker 上下文。
+- AX 调用增加 0.20s 超时；Chromium 聚焦元素 bounded fallback；安全输入与密码字段 fail closed。
+- system-wide 焦点回退校验前台 PID；鼠标划词增加焦点元素 bounds + 20pt 容差校验。
+- 剪贴板降级改为目标 PID + `changeCount` + 快照恢复；文件复制不当作选中文字；截图工具浮层期间跳过；并发触发串行化。
+- 取词增加 `AXSelectedTextMarkerRange` 兜底；无普通 selected range 时用选中文本反查全文范围恢复上下文。
+
+### OCR 与上下文
+
+- OCR 增加语言自动检测、同行碎片合并和段落间距重建。
+- OCR 低置信度多 pass：灰度/对比度/锐化增强、深色反色兜底、按置信度/字符数/行数评分。
+- OCR 段落拼接：英文/中文续行合并，列表项和明显行距保留换行，段落间距保留空行。
+- 整篇文章上下文按账户保存，划词、剪贴板、输入和浏览器入口都会带上。
+
+### 测试与文档
+
+- XCTest 共 **33 个，0 failures**；覆盖 URL 解析、设置迁移、Prompt、缓存 key、首启标记、History/CSV、OCR 版面/段落/多 pass、鼠标点校验、截图浮层检测、marker 范围反查。
+- 新增 `docs/release-notes-0.4.1.md`，README 重写版本、下载、更新、隐私与已知边界。
+- 细节见 `docs/open-source-capture-ocr-review.md`。
 
 ## 0.4.0 — 2026-11-26
 

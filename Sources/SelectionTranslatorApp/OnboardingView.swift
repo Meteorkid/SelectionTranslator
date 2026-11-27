@@ -77,7 +77,7 @@ struct OnboardingView: View {
 
             Spacer()
 
-            Text("0.4.0")
+            Text("0.4.1")
                 .font(.system(size: 10, weight: .medium, design: .rounded))
                 .monospacedDigit()
                 .foregroundStyle(.secondary)

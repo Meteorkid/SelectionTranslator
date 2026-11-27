@@ -46,8 +46,8 @@ targets:
       path: Support/Info.plist
       properties:
         CFBundleDisplayName: 划词翻译
-        CFBundleShortVersionString: "0.4.0"
-        CFBundleVersion: "5"
+        CFBundleShortVersionString: "0.4.1"
+        CFBundleVersion: "6"
         LSMinimumSystemVersion: "14.0"
         LSUIElement: true
         NSSupportsAutomaticTermination: false
@@ -66,8 +66,8 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.meteor.SelectionTranslator
         PRODUCT_NAME: SelectionTranslator
-        MARKETING_VERSION: "0.4.0"
-        CURRENT_PROJECT_VERSION: "5"
+        MARKETING_VERSION: "0.4.1"
+        CURRENT_PROJECT_VERSION: "6"
 
   SelectionTranslatorTests:
     type: bundle.unit-test

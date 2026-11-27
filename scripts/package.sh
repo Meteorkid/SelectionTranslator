@@ -12,7 +12,7 @@ mkdir -p "$DIST"
 
 ditto -c -k --keepParent "$APP" "$DIST/SelectionTranslator-$VERSION.zip"
 zip -qr "$DIST/SelectionTranslator-$VERSION-source.zip" \
-  Sources Tests scripts Support project.yml README.md docs browser-extension \
+  Sources Tests scripts Support project.yml README.md CHANGELOG.md docs browser-extension \
   LICENSE PRIVACY.md appcast.xml \
   -x '*.DS_Store'
 echo "Packaged:"
