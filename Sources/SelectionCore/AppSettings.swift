@@ -385,8 +385,7 @@ struct AppSettings: Codable, Equatable, Sendable {
 
     /// Ollama / LM Studio 等本地服务通常不校验 API Key。
     var isLocalProvider: Bool {
-        guard let host = URL(string: apiBaseURL)?.host?.lowercased() else { return false }
-        return host == "localhost" || host == "127.0.0.1" || host == "::1" || host == "0.0.0.0"
+        EndpointURL.isLocal(apiBaseURL)
     }
 
     var isUsableWithoutKey: Bool {
@@ -467,5 +466,54 @@ struct AppSettings: Codable, Equatable, Sendable {
             || (providerName == "DeepSeek" && !apiBaseURL.contains("api.deepseek.com")) {
             providerName = Self.inferProviderName(from: apiBaseURL)
         }
+    }
+}
+
+
+// MARK: - Endpoint URLs
+
+enum EndpointURL {
+    /// Accept common hand-typed endpoints without a scheme. Loopback,
+    /// link-local and private-network addresses default to HTTP because that
+    /// is what Ollama, LM Studio and AnkiConnect expose; public hosts default
+    /// to HTTPS so an API key is never sent in cleartext by accident.
+    static func normalized(_ raw: String) -> String {
+        var value = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !value.isEmpty else { return value }
+        if !value.contains("://") {
+            value = (isLocalHost(value) ? "http://" : "https://") + value
+        }
+        while value.hasSuffix("/") { value.removeLast() }
+        return value
+    }
+
+    static func normalizedBase(_ raw: String) -> String {
+        var value = normalized(raw)
+        if value.hasSuffix("/chat/completions") {
+            value.removeLast("/chat/completions".count)
+        }
+        while value.hasSuffix("/") { value.removeLast() }
+        return value
+    }
+
+    static func isLocal(_ raw: String) -> Bool {
+        isLocalHost(normalized(raw))
+    }
+
+    private static func isLocalHost(_ normalized: String) -> Bool {
+        var candidate = normalized
+        if !candidate.contains("://") { candidate = "http://" + candidate }
+        guard let host = URL(string: candidate)?.host?.lowercased() else { return false }
+        if host == "localhost" || host == "::1" || host == "0.0.0.0" { return true }
+        if host.hasPrefix("127.") || host.hasPrefix("10.") || host.hasPrefix("192.168.") {
+            return true
+        }
+        if host.hasPrefix("172."),
+           let second = host.split(separator: ".").dropFirst().first,
+           let number = Int(second),
+           (16...31).contains(number) {
+            return true
+        }
+        return host.hasSuffix(".local")
     }
 }

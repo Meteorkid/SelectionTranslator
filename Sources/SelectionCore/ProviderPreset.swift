@@ -108,17 +108,11 @@ enum ProviderHealth {
     }
 
     private static func normalizedBase(_ raw: String) -> String {
-        var base = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        while base.hasSuffix("/") { base.removeLast() }
-        if base.hasSuffix("/chat/completions") {
-            base.removeLast("/chat/completions".count)
-        }
-        return base
+        EndpointURL.normalizedBase(raw)
     }
 
     private static func isLocal(_ base: String) -> Bool {
-        guard let host = URL(string: base)?.host?.lowercased() else { return false }
-        return host == "localhost" || host == "127.0.0.1" || host == "::1"
+        EndpointURL.isLocal(base)
     }
 
     private static func decodeModelCount(_ data: Data) -> Int {

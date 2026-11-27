@@ -42,14 +42,13 @@ struct OpenAICompatibleProvider: Sendable {
         _ request: TranslationRequest,
         continuation: AsyncThrowingStream<String, Error>.Continuation
     ) async throws {
-        var base = request.apiBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        while base.hasSuffix("/") {
-            base.removeLast()
-        }
+        var base = EndpointURL.normalizedBase(request.apiBaseURL)
         if !base.hasSuffix("/chat/completions") {
             base += "/chat/completions"
         }
-        guard let url = URL(string: base) else {
+        guard let url = URL(string: base),
+              let scheme = url.scheme?.lowercased(),
+              scheme == "http" || scheme == "https" else {
             throw ProviderError.invalidURL
         }
 

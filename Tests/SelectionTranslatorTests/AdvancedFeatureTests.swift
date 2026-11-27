@@ -310,4 +310,31 @@ final class AdvancedFeatureTests: XCTestCase {
         DocumentContextRepository.keyOverride = Data(repeating: 0x42, count: 32)
         XCTAssertEqual(DocumentContextRepository.read(accountID: accountID), "不能丢的上下文")
     }
+
+    func testEndpointURLsDefaultToSecureOrLocalScheme() {
+        XCTAssertEqual(
+            EndpointURL.normalized("localhost:11434/v1"),
+            "http://localhost:11434/v1"
+        )
+        XCTAssertEqual(
+            EndpointURL.normalized("127.0.0.1:1234/v1/"),
+            "http://127.0.0.1:1234/v1"
+        )
+        XCTAssertEqual(
+            EndpointURL.normalized("api.deepseek.com/v1"),
+            "https://api.deepseek.com/v1"
+        )
+        XCTAssertEqual(
+            EndpointURL.normalized("https://api.example.com/v1/chat/completions"),
+            "https://api.example.com/v1/chat/completions"
+        )
+        XCTAssertEqual(
+            EndpointURL.normalizedBase("https://api.example.com/v1/chat/completions"),
+            "https://api.example.com/v1"
+        )
+        XCTAssertTrue(EndpointURL.isLocal("localhost:8765"))
+        XCTAssertTrue(EndpointURL.isLocal("192.168.1.5:8765"))
+        XCTAssertFalse(EndpointURL.isLocal("api.deepseek.com/v1"))
+    }
+
 }

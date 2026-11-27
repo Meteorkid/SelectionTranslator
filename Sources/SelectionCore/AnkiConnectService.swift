@@ -99,7 +99,11 @@ enum AnkiConnectService {
         action: String,
         params: [String: Any]
     ) async throws -> Any {
-        guard let url = URL(string: urlString), !urlString.isEmpty else {
+        let normalized = EndpointURL.normalized(urlString)
+        guard !normalized.isEmpty,
+              let url = URL(string: normalized),
+              let scheme = url.scheme?.lowercased(),
+              scheme == "http" || scheme == "https" else {
             throw AnkiConnectError.invalidURL
         }
         var request = URLRequest(url: url)
