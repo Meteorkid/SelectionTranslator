@@ -4,7 +4,7 @@ import Translation
 
 struct InputTranslationView: View {
     @ObservedObject var store: SettingsStore
-    let accountID: UUID
+    @ObservedObject var accountStore: LocalAccountStore
     @StateObject private var model = TranslationViewModel()
     @State private var inputText = ""
     @FocusState private var inputFocused: Bool
@@ -263,7 +263,7 @@ struct InputTranslationView: View {
         guard !text.isEmpty else { return }
         let document = store.settings.useDocumentContext
             ? String(
-                DocumentContextRepository.read(accountID: accountID)
+                DocumentContextRepository.read(accountID: accountStore.activeID)
                     .prefix(max(0, store.settings.documentContextMaxChars))
             )
             : ""
@@ -274,7 +274,7 @@ struct InputTranslationView: View {
             source: .input,
             settings: store.settings,
             apiKey: KeychainStore.read(key: "apiKey") ?? "",
-            accountID: accountID,
+            accountID: accountStore.activeID,
             documentContext: document
         )
     }
@@ -322,7 +322,7 @@ private struct InputSystemTranslationBridge: View {
 final class InputTranslationWindowController {
     private var window: NSWindow?
 
-    func show(store: SettingsStore, accountID: UUID, onOpenLibrary: @escaping () -> Void) {
+    func show(store: SettingsStore, accountStore: LocalAccountStore, onOpenLibrary: @escaping () -> Void) {
         if let window {
             NSApp.activate(ignoringOtherApps: true)
             window.makeKeyAndOrderFront(nil)
@@ -331,7 +331,7 @@ final class InputTranslationWindowController {
 
         let view = InputTranslationView(
             store: store,
-            accountID: accountID,
+            accountStore: accountStore,
             onOpenLibrary: onOpenLibrary
         )
         let window = NSWindow(

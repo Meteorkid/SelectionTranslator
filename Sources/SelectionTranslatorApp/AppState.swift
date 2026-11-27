@@ -323,7 +323,7 @@ final class AppState: ObservableObject {
     func openInput() {
         inputWindowController.show(
             store: settingsStore,
-            accountID: accountStore.activeID,
+            accountStore: accountStore,
             onOpenLibrary: { [weak self] in
                 self?.openLibrary()
             }
