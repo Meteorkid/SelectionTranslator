@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 import PDFKit
+import UniformTypeIdentifiers
 
 private struct OllamaTags: Decodable {
     struct Model: Decodable { let name: String }
@@ -54,7 +55,13 @@ struct SettingsView: View {
 
     @State private var apiKey: String = KeychainStore.read(key: "apiKey") ?? ""
     @State private var showKey = false
-    @State private var selectedTab: SettingsTab = .account
+    @State private var selectedTab: SettingsTab = {
+        if let raw = ProcessInfo.processInfo.environment["ST_SETTINGS_TAB"],
+           let tab = SettingsTab(rawValue: raw) {
+            return tab
+        }
+        return .account
+    }()
     @State private var accessibilityTrusted = Permissions.isAccessibilityTrusted()
     @State private var screenRecordingTrusted = Permissions.hasScreenRecordingPermission()
     @State private var ollamaModels: [String] = []
@@ -193,6 +200,7 @@ struct SettingsView: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier("settings-tab-\(tab.rawValue)")
                 .accessibilityAddTraits(selectedTab == tab ? .isSelected : [])
             }
         }
@@ -1155,7 +1163,7 @@ struct SettingsView: View {
     private func importPDF() {
         let panel = NSOpenPanel()
         panel.title = "选择要作为上下文的 PDF"
-        panel.allowedFileTypes = ["pdf"]
+        panel.allowedContentTypes = [.pdf]
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
         panel.canChooseFiles = true

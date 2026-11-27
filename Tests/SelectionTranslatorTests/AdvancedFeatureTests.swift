@@ -95,6 +95,27 @@ final class AdvancedFeatureTests: XCTestCase {
         XCTAssertEqual(DocumentContextTrimmer.trim(document, maxCharacters: 0, selection: "x"), "")
     }
 
+    func testExternalURLCallerAllowlist() {
+        XCTAssertTrue(ExternalURLCallerVerifier.isAllowed("com.apple.Safari"))
+        XCTAssertTrue(ExternalURLCallerVerifier.isAllowed("com.google.Chrome"))
+        XCTAssertTrue(ExternalURLCallerVerifier.isAllowed("com.apple.finder"))
+        XCTAssertFalse(ExternalURLCallerVerifier.isAllowed("com.example.malware"))
+        XCTAssertFalse(ExternalURLCallerVerifier.isAllowed(nil))
+        XCTAssertFalse(ExternalURLCallerVerifier.isAllowed(""))
+    }
+
+    func testHistoryCipherRoundTripAndPrefix() throws {
+        let cipher = HistoryCipher(keyOverride: Data(repeating: 0x33, count: 32))
+        XCTAssertTrue(cipher.isAvailable)
+        let encrypted = try cipher.encrypt("private reading")
+        XCTAssertTrue(encrypted.hasPrefix(HistoryCipher.prefix))
+        XCTAssertEqual(try cipher.decrypt(encrypted), "private reading")
+        XCTAssertEqual(try cipher.decrypt("legacy plaintext"), "legacy plaintext")
+
+        let wrong = HistoryCipher(keyOverride: Data(repeating: 0x44, count: 32))
+        XCTAssertThrowsError(try wrong.decrypt(encrypted))
+    }
+
     func testExternalURLGateEnforcesLengthAndRate() {
         var gate = ExternalURLGate()
         let start = Date(timeIntervalSince1970: 1_000)

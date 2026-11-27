@@ -8,13 +8,13 @@ SelectionTranslator（显示名「划词翻译」）是一个本地优先的 mac
 
 以下数据默认只保存在这台 Mac 上：
 
-- `~/Library/Application Support/SelectionTranslator/history.sqlite3`：翻译历史、生词本、账户标识；文件权限 `0600`。
+- `~/Library/Application Support/SelectionTranslator/history.sqlite3`：翻译历史、生词本、账户标识；敏感文本字段用 AES-GCM 加密，文件权限 `0600`。
 - `~/Library/Application Support/SelectionTranslator/profiles.json`：本地账户名称与头像标识。
 - `~/Library/Application Support/SelectionTranslator/document-context-<account-uuid>.enc`：你主动粘贴或从 PDF 导入的整篇文章上下文；AES-GCM 加密保存，文件权限 `0600`。
 - `~/Library/Preferences/SelectionTranslator.settings`：外观、快捷键、模型地址、上下文长度等设置。
-- Keychain（service `com.meteor.SelectionTranslator`）：`apiKey` 保存你填写的模型 API Key；`documentContextKey` 保存上下文加密密钥（256 位，只在本机）。
+- Keychain（service `com.meteor.SelectionTranslator`）：`apiKey` 保存你填写的模型 API Key；`documentContextKey` 保存上下文加密密钥；`historyEncryptionKey` 保存历史字段加密密钥（均为 256 位，只在本机）。
 
-卸载 App 不会自动删除上述数据。你可以手动删除 `Application Support/SelectionTranslator` 目录，并在「钥匙串访问」里删除 service `com.meteor.SelectionTranslator` 下的 `apiKey` 与 `documentContextKey`。
+卸载 App 不会自动删除上述数据。你可以手动删除 `Application Support/SelectionTranslator` 目录，并在「钥匙串访问」里删除 service `com.meteor.SelectionTranslator` 下的 `apiKey`、`documentContextKey` 与 `historyEncryptionKey`。
 
 ## 什么时候会联网
 
@@ -32,7 +32,7 @@ SelectionTranslator（显示名「划词翻译」）是一个本地优先的 mac
 - **剪贴板翻译**只在你按下快捷键或点击菜单时读取剪贴板。
 - **取词降级**在必要时会向目标 App 发送一次合成 `⌘C`，读取当前选区后恢复原剪贴板内容。该操作只在本次取词期间发生。
 - **截图 OCR** 只处理你框选的区域；OCR 在设备端通过 Apple Vision 完成，不上传截图。
-- **整篇文章上下文**只有在你主动开启并粘贴内容后才会参与翻译；它不会自动抓取整个屏幕或整个网页。
+- **整篇文章上下文**只有在你主动开启、粘贴或从 PDF 导入内容后才会参与翻译；它不会自动抓取整个屏幕或整个网页。上下文和历史只在本机解密，发送给模型服务的只有翻译所需的选区与相关片段。
 
 ## 权限
 

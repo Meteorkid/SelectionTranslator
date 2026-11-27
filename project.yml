@@ -40,6 +40,7 @@ targets:
       - sdk: Vision.framework
       - sdk: AVFoundation.framework
       - sdk: CoreServices.framework
+      - sdk: ApplicationServices.framework
       - sdk: PDFKit.framework
       - sdk: libsqlite3.tbd
       - package: Sparkle
@@ -67,6 +68,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.meteor.SelectionTranslator
         PRODUCT_NAME: SelectionTranslator
+        SWIFT_OBJC_BRIDGING_HEADER: Sources/SelectionTranslatorApp/BridgingHeader.h
         MARKETING_VERSION: "0.4.1"
         CURRENT_PROJECT_VERSION: "6"
 
@@ -77,11 +79,26 @@ targets:
       - path: Tests/SelectionTranslatorTests
     dependencies:
       - target: SelectionTranslator
+      - sdk: libsqlite3.tbd
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.meteor.SelectionTranslatorTests
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/SelectionTranslator.app/Contents/MacOS/SelectionTranslator"
         BUNDLE_LOADER: "$(TEST_HOST)"
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGN_IDENTITY: "-"
+
+  SelectionTranslatorUITests:
+    type: bundle.ui-testing
+    platform: macOS
+    sources:
+      - path: Tests/SelectionTranslatorUITests
+    dependencies:
+      - target: SelectionTranslator
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.meteor.SelectionTranslatorUITests
+        TEST_TARGET_NAME: SelectionTranslator
         GENERATE_INFOPLIST_FILE: YES
         CODE_SIGN_IDENTITY: "-"
 
@@ -95,6 +112,7 @@ targets:
       - sdk: Vision.framework
       - sdk: AVFoundation.framework
       - sdk: CoreServices.framework
+      - sdk: ApplicationServices.framework
       - sdk: PDFKit.framework
       - sdk: libsqlite3.tbd
     settings:
@@ -112,6 +130,16 @@ schemes:
     test:
       targets:
         - SelectionTranslatorTests
+  SelectionTranslatorUITests:
+    build:
+      targets:
+        SelectionTranslator: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - SelectionTranslatorUITests
   SelectionProbe:
     build:
       targets:

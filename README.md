@@ -13,7 +13,7 @@
 - **隐私说明**：新增 `PRIVACY.md`，写清本机数据、联网时机、剪贴板/截图 OCR 边界和权限用途；首启页与设置页都有入口。
 - **首次启动引导**：用三张卡片说明「不会误取」「不会丢上下文」「不会打断截图」；老用户已有设置时自动跳过，不打断升级。
 - **取词与 OCR 硬化**：AX 超时、Chromium/Electron 预启用、安全输入保护、目标 PID 剪贴板降级、Chrome text-marker 上下文、OCR 多 pass 与段落拼接。
-- **验证**：`./scripts/build.sh` 通过；33 个 XCTest 全过；Sparkle feed 与 zip 签名均已校验。
+- **验证**：`./scripts/build.sh` 通过；0.4.1 发布时 33 个 XCTest 全过；Sparkle feed 与 zip 签名均已校验。
 
 ## 界面
 
@@ -44,7 +44,7 @@ GitHub Releases：<https://github.com/Meteorkid/SelectionTranslator/releases/lat
 - 模型翻译：OpenAI-compatible 流式接口，DeepSeek / OpenAI / Ollama / LM Studio 共用一套协议
 - 降级链：系统词典 → 离线词库 → 内存缓存 → 本地/在线模型 → macOS 系统翻译 → 显示原文并允许复制
 - 本地账户：多账户切换、重命名、头像、删除入口；无登录、无云端
-- 历史与生词本：SQLite 本地库，按账户隔离；搜索、收藏、删除、JSONL/CSV 导出
+- 历史与生词本：SQLite 本地库，按账户隔离；敏感字段 AES-GCM 加密；搜索、收藏、删除、JSONL/CSV 导出
 - Anki：AnkiConnect 测试、把收藏发送到牌组；也支持 CSV 手动导入
 - 朗读：AVSpeechSynthesizer
 - 浏览器入口：Chrome Manifest V3 扩展，选区旁出现“译”按钮，带选区 + 段落 + 整页上下文；也支持右键菜单与 `Ctrl+Shift+Y`
@@ -52,8 +52,8 @@ GitHub Releases：<https://github.com/Meteorkid/SelectionTranslator/releases/lat
 - 剪贴板降级安全化：目标 PID 定向复制、等待 `changeCount`、保留/恢复剪贴板快照，文件复制不会被当成选中文字；截图工具浮层期间跳过；并发触发串行化
 - Safari Web Extension：已生成并签名 `browser-extension/safari-project`，在 Safari 里启用并授予“所有网站”权限后，选区浮标 → 外部协议 → App 面板的端到端链路已走通
 - Sparkle 自动更新：`appcast.xml` + EdDSA 签名，设置页与菜单都可手动检查；Sparkle 负责下载、验证与安装确认
-- 自动化回归：`SelectionTranslatorTests` 共 33 个 XCTest 用例，覆盖 URL 解析、设置迁移（含外观回退）、Prompt、缓存 key、首启标记、History/CSV、OCR 版面/段落拼接/多 pass 评分、鼠标点校验、截图浮层检测、marker 范围反查
-- URL Scheme：`selectiontranslator://translate?...`、`clipboard`、`input`、`ocr`、`silent-ocr`、`library`、`settings`
+- 自动化回归：`SelectionTranslatorTests` 共 43 个 XCTest 用例，覆盖 URL 解析、设置迁移（含外观回退）、Prompt、缓存 key、首启标记、History/CSV、OCR 版面/段落拼接/多 pass 评分、鼠标点校验、截图浮层检测、marker 范围反查
+- URL Scheme：`selectiontranslator://translate?...`、`clipboard`、`input`、`ocr`、`silent-ocr`、`library`、`settings`；外部调用校验 Apple Event 来源 bundle ID 并限流
 - 52 种目标语言目录，系统翻译与模型可用性因语言而异
 - 设置页：账户 / 翻译 / 上下文 / 快捷键 / 数据与权限，五个 Tab
 
@@ -107,11 +107,11 @@ https://github.com/Meteorkid/SelectionTranslator/releases/latest/download/appcas
 ```text
 ~/Library/Application Support/SelectionTranslator/
 ├── profiles.json                         # 本地账户
-├── history.sqlite3                       # 历史 + 生词本（0600）
+├── history.sqlite3                       # 历史 + 生词本（敏感字段 AES-GCM，0600）
 └── document-context-<account-uuid>.enc   # 当前账户的整篇上下文（AES-GCM）
 ```
 
-API Key 与上下文加密密钥存在 Keychain（service `com.meteor.SelectionTranslator`，account 分别为 `apiKey` 与 `documentContextKey`）。没有云端同步，也没有账号密码。
+API Key、上下文密钥与历史密钥存在 Keychain（service `com.meteor.SelectionTranslator`，account 分别为 `apiKey`、`documentContextKey` 与 `historyEncryptionKey`）。没有云端同步，也没有账号密码。
 
 ## 构建与测试
 
@@ -135,7 +135,7 @@ xcodebuild test \
   -derivedDataPath build/DerivedData
 ```
 
-当前 33 个 XCTest 用例全部通过；最后一次结果：`** TEST SUCCEEDED **`。
+当前 43 个 XCTest 用例全部通过；最后一次结果：`** TEST SUCCEEDED **`。UI 冒烟测试单独放在 `SelectionTranslatorUITests` scheme，需要先在系统里允许 XCTest 的 UI Automation 权限。
 
 ## 浏览器扩展
 

@@ -9,15 +9,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Fresh installs see the three promises before Sparkle's first
         // automatic check; existing installs start the updater immediately.
-        let showingOnboarding = AppState.shared?.presentOnboardingIfNeeded() ?? false
+        let environment = ProcessInfo.processInfo.environment
+        let showingOnboarding = environment["ST_SKIP_ONBOARDING"] == "1"
+            ? false
+            : (AppState.shared?.presentOnboardingIfNeeded() ?? false)
         if !showingOnboarding {
             AppState.shared?.startUpdater()
+        }
+
+        if environment["ST_OPEN_SETTINGS"] == "1" {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                AppState.shared?.openSettings()
+            }
         }
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {
+        let callerBundleID = ExternalURLCallerVerifier.currentBundleID()
         Task { @MainActor in
-            AppState.shared?.handle(urls)
+            AppState.shared?.handle(urls, callerBundleID: callerBundleID)
         }
     }
 

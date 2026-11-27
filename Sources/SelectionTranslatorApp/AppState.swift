@@ -266,7 +266,9 @@ final class AppState: ObservableObject {
     /// menu's "check now" action.
     func startUpdater() {
         guard !hasStartedUpdater else { return }
-        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["XCTestConfigurationFilePath"] == nil,
+              environment["ST_DISABLE_UPDATER"] != "1" else {
             log.info("skipping Sparkle updater in test host")
             return
         }
@@ -355,16 +357,22 @@ final class AppState: ObservableObject {
 
     // MARK: - URL scheme / external entry points
 
-    func handle(_ urls: [URL]) {
+    func handle(_ urls: [URL], callerBundleID: String? = nil) {
         for url in urls where url.scheme?.lowercased() == "selectiontranslator" {
-            handle(url)
+            handle(url, callerBundleID: callerBundleID)
         }
     }
 
-    private func handle(_ url: URL) {
+    private func handle(_ url: URL, callerBundleID: String?) {
         guard let command = AppURLParser.parse(url) else { return }
         switch command {
         case .translate(let request):
+            guard ExternalURLCallerVerifier.isAllowed(callerBundleID) else {
+                panelController.showError(
+                    "无法验证外部调用来源，已拒绝。请从浏览器扩展、快捷指令或 Finder 重新调用。"
+                )
+                return
+            }
             guard !request.text.isEmpty else {
                 panelController.showError("URL 里没有 text 参数。")
                 return

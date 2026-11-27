@@ -1,4 +1,5 @@
 import XCTest
+import SQLite3
 @testable import SelectionTranslator
 
 final class PromptBuilderTests: XCTestCase {
@@ -165,7 +166,8 @@ final class HistoryStoreTests: XCTestCase {
         let csvURL = directory.appendingPathComponent("history.csv")
         defer { try? FileManager.default.removeItem(at: directory) }
 
-        let store = HistoryStore(databaseURL: databaseURL)
+        let encryptionKey = Data(repeating: 0x5A, count: 32)
+        let store = HistoryStore(databaseURL: databaseURL, encryptionKey: encryptionKey)
         let attributes = try FileManager.default.attributesOfItem(atPath: databaseURL.path)
         XCTAssertEqual((attributes[.posixPermissions] as? NSNumber)?.intValue, 0o600)
 
@@ -191,6 +193,16 @@ final class HistoryStoreTests: XCTestCase {
         let records = try await store.records(accountID: accountID)
         XCTAssertEqual(records.count, 1)
         XCTAssertEqual(records.first?.sourceText, record.sourceText)
+        XCTAssertEqual(records.first?.translatedText, "译文")
+
+        let storedSource = try rawColumn("source_text", at: databaseURL)
+        XCTAssertTrue(storedSource.hasPrefix(HistoryCipher.prefix))
+        XCTAssertFalse(storedSource.contains("a,\"b\""))
+
+        let searched = try await store.records(accountID: accountID, search: "译文")
+        XCTAssertEqual(searched.count, 1)
+        let noMatch = try await store.records(accountID: accountID, search: "missing")
+        XCTAssertTrue(noMatch.isEmpty)
 
         try await store.exportCSV(accountID: accountID, to: csvURL)
         let csv = try String(contentsOf: csvURL, encoding: .utf8)
@@ -198,5 +210,89 @@ final class HistoryStoreTests: XCTestCase {
         XCTAssertTrue(csv.contains("\"译文\""))
         XCTAssertTrue(csv.contains("\"\"b\"\"") || csv.contains("\"a,\"\"b\"\"\nline\""))
         XCTAssertTrue(csv.contains("\"1\""))
+    }
+
+    func testLegacyPlaintextRowsAreMigrated() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("HistoryMigrationTests-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let databaseURL = directory.appendingPathComponent("history.sqlite3")
+        let accountID = UUID()
+
+        let oldSchema = """
+        CREATE TABLE queries (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            account_id TEXT NOT NULL,
+            created_at REAL NOT NULL,
+            source_text TEXT NOT NULL,
+            translated_text TEXT NOT NULL,
+            context TEXT NOT NULL DEFAULT '',
+            app_name TEXT NOT NULL DEFAULT '',
+            bundle_id TEXT NOT NULL DEFAULT '',
+            source_kind TEXT NOT NULL DEFAULT '',
+            engine TEXT NOT NULL DEFAULT '',
+            target_language TEXT NOT NULL DEFAULT '',
+            is_favorite INTEGER NOT NULL DEFAULT 0
+        );
+        INSERT INTO queries
+        (account_id, created_at, source_text, translated_text, context, app_name, bundle_id,
+         source_kind, engine, target_language, is_favorite)
+        VALUES ('\(accountID.uuidString)', 1000, 'legacy secret', '旧译文', '旧上下文',
+                'Notes', 'com.apple.Notes', 'accessibility', 'model', '简体中文', 0);
+        """
+        try execute(oldSchema, at: databaseURL)
+
+        let store = HistoryStore(
+            databaseURL: databaseURL,
+            encryptionKey: Data(repeating: 0x6B, count: 32)
+        )
+        let records = try await store.records(accountID: accountID)
+        XCTAssertEqual(records.count, 1)
+        XCTAssertEqual(records.first?.sourceText, "legacy secret")
+        XCTAssertEqual(records.first?.translatedText, "旧译文")
+
+        let storedSource = try rawColumn("source_text", at: databaseURL)
+        XCTAssertTrue(storedSource.hasPrefix(HistoryCipher.prefix))
+        XCTAssertFalse(storedSource.contains("legacy secret"))
+    }
+
+    private func execute(_ sql: String, at url: URL) throws {
+        var database: OpaquePointer?
+        guard sqlite3_open(url.path, &database) == SQLITE_OK, let database else {
+            throw HistoryStoreError.databaseUnavailable
+        }
+        defer { sqlite3_close(database) }
+        var errorPointer: UnsafeMutablePointer<CChar>?
+        let result = sqlite3_exec(database, sql, nil, nil, &errorPointer)
+        if result != SQLITE_OK {
+            let message = errorPointer.map { String(cString: $0) } ?? "unknown"
+            sqlite3_free(errorPointer)
+            throw HistoryStoreError.sqlite(message)
+        }
+    }
+
+    private func rawColumn(_ column: String, at url: URL) throws -> String {
+        var database: OpaquePointer?
+        guard sqlite3_open(url.path, &database) == SQLITE_OK, let database else {
+            throw HistoryStoreError.databaseUnavailable
+        }
+        defer { sqlite3_close(database) }
+        var statement: OpaquePointer?
+        guard sqlite3_prepare_v2(
+            database,
+            "SELECT \(column) FROM queries ORDER BY id DESC LIMIT 1;",
+            -1,
+            &statement,
+            nil
+        ) == SQLITE_OK, let statement else {
+            throw HistoryStoreError.sqlite(String(cString: sqlite3_errmsg(database)))
+        }
+        defer { sqlite3_finalize(statement) }
+        guard sqlite3_step(statement) == SQLITE_ROW,
+              let text = sqlite3_column_text(statement, 0) else {
+            return ""
+        }
+        return String(cString: text)
     }
 }

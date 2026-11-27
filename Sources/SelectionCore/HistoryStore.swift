@@ -23,8 +23,10 @@ actor HistoryStore {
     private var database: OpaquePointer?
     private var didCreateSchema = false
     private let databaseURL: URL
+    private let encryptionKeyOverride: Data?
+    private var cipher: HistoryCipher?
 
-    init(databaseURL: URL? = nil) {
+    init(databaseURL: URL? = nil, encryptionKey: Data? = nil) {
         let resolvedURL: URL
         if let databaseURL {
             resolvedURL = databaseURL
@@ -39,6 +41,7 @@ actor HistoryStore {
             withIntermediateDirectories: true
         )
         self.databaseURL = resolvedURL
+        self.encryptionKeyOverride = encryptionKey
 
         var handle: OpaquePointer?
         let result = sqlite3_open_v2(
@@ -53,8 +56,9 @@ actor HistoryStore {
         }
         database = handle
         sqlite3_busy_timeout(handle, 5_000)
-        // Translation history is sensitive reading material. Restrict the
-        // database to the current user until field-level encryption lands.
+        // Translation history is sensitive reading material. Field-level
+        // encryption protects the content; 0600 restricts the database and
+        // WAL/journal side files to the current user.
         try? FileManager.default.setAttributes(
             [.posixPermissions: 0o600],
             ofItemAtPath: resolvedURL.path
@@ -69,26 +73,28 @@ actor HistoryStore {
 
     func insert(_ record: QueryRecord) throws -> Int64 {
         let db = try requireDatabase()
+        let cipher = try requireCipher()
         let sql = """
         INSERT INTO queries
         (account_id, created_at, source_text, translated_text, context, app_name, bundle_id,
-         source_kind, engine, target_language, is_favorite)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+         source_kind, engine, target_language, is_favorite, char_count)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         """
         let statement = try prepare(sql, in: db)
         defer { sqlite3_finalize(statement) }
 
         try bind(record.accountID.uuidString, to: statement, index: 1)
         sqlite3_bind_double(statement, 2, record.createdAt.timeIntervalSince1970)
-        try bind(record.sourceText, to: statement, index: 3)
-        try bind(record.translatedText, to: statement, index: 4)
-        try bind(record.context, to: statement, index: 5)
-        try bind(record.appName, to: statement, index: 6)
-        try bind(record.bundleID ?? "", to: statement, index: 7)
+        try bind(try cipher.encrypt(record.sourceText), to: statement, index: 3)
+        try bind(try cipher.encrypt(record.translatedText), to: statement, index: 4)
+        try bind(try cipher.encrypt(record.context), to: statement, index: 5)
+        try bind(try cipher.encrypt(record.appName), to: statement, index: 6)
+        try bind(try cipher.encrypt(record.bundleID ?? ""), to: statement, index: 7)
         try bind(record.sourceKind, to: statement, index: 8)
         try bind(record.engine, to: statement, index: 9)
         try bind(record.targetLanguage, to: statement, index: 10)
         sqlite3_bind_int(statement, 11, record.isFavorite ? 1 : 0)
+        sqlite3_bind_int64(statement, 12, Int64(record.sourceText.count))
 
         guard sqlite3_step(statement) == SQLITE_DONE else {
             throw lastError(db)
@@ -102,17 +108,18 @@ actor HistoryStore {
         favoritesOnly: Bool = false,
         limit: Int = 300
     ) throws -> [QueryRecord] {
+        guard limit > 0 else { return [] }
         let db = try requireDatabase()
+        let cipher = currentCipher()
         let trimmedSearch = search.trimmingCharacters(in: .whitespacesAndNewlines)
+        let defaultLimit = Int32(max(0, limit))
         let whereFavorite = favoritesOnly ? "AND is_favorite = 1" : ""
-        let whereSearch = trimmedSearch.isEmpty
-            ? ""
-            : "AND (source_text LIKE ? OR translated_text LIKE ? OR context LIKE ? OR app_name LIKE ?)"
+        let scanLimit = trimmedSearch.isEmpty ? defaultLimit : 100_000
         let sql = """
         SELECT id, account_id, created_at, source_text, translated_text, context,
                app_name, bundle_id, source_kind, engine, target_language, is_favorite
         FROM queries
-        WHERE account_id = ? \(whereFavorite) \(whereSearch)
+        WHERE account_id = ? \(whereFavorite)
         ORDER BY created_at DESC
         LIMIT ?;
         """
@@ -120,19 +127,21 @@ actor HistoryStore {
         defer { sqlite3_finalize(statement) }
 
         try bind(accountID.uuidString, to: statement, index: 1)
-        var nextIndex: Int32 = 2
-        if !trimmedSearch.isEmpty {
-            let pattern = "%\(trimmedSearch)%"
-            for _ in 0..<4 {
-                try bind(pattern, to: statement, index: nextIndex)
-                nextIndex += 1
-            }
-        }
-        sqlite3_bind_int(statement, nextIndex, Int32(max(0, limit)))
+        // Encrypted text cannot be searched with SQL LIKE: decrypt the
+        // account's newest rows in memory and stop at the caller's limit.
+        sqlite3_bind_int(statement, 2, Int32(scanLimit))
 
         var result: [QueryRecord] = []
         while sqlite3_step(statement) == SQLITE_ROW {
-            result.append(readRecord(from: statement))
+            let record = readRecord(from: statement, cipher: cipher)
+            if trimmedSearch.isEmpty
+                || record.sourceText.localizedCaseInsensitiveContains(trimmedSearch)
+                || record.translatedText.localizedCaseInsensitiveContains(trimmedSearch)
+                || record.context.localizedCaseInsensitiveContains(trimmedSearch)
+                || record.appName.localizedCaseInsensitiveContains(trimmedSearch) {
+                result.append(record)
+                if !trimmedSearch.isEmpty, result.count >= max(0, limit) { break }
+            }
         }
         return result
     }
@@ -148,7 +157,8 @@ actor HistoryStore {
             in: db
         )
         defer { sqlite3_finalize(statement) }
-        try bind(translatedText, to: statement, index: 1)
+        let cipher = try requireCipher()
+        try bind(try cipher.encrypt(translatedText), to: statement, index: 1)
         try bind(engine, to: statement, index: 2)
         sqlite3_bind_int64(statement, 3, id)
         guard sqlite3_step(statement) == SQLITE_DONE else { throw lastError(db) }
@@ -174,7 +184,8 @@ actor HistoryStore {
     func stats(accountID: UUID) throws -> HistoryStats {
         let db = try requireDatabase()
         let sql = """
-        SELECT COUNT(*), COALESCE(SUM(is_favorite), 0), COALESCE(SUM(LENGTH(source_text)), 0)
+        SELECT COUNT(*), COALESCE(SUM(is_favorite), 0),
+               COALESCE(SUM(CASE WHEN char_count > 0 THEN char_count ELSE LENGTH(source_text) END), 0)
         FROM queries WHERE account_id = ?;
         """
         let statement = try prepare(sql, in: db)
@@ -246,7 +257,8 @@ actor HistoryStore {
             source_kind TEXT NOT NULL DEFAULT '',
             engine TEXT NOT NULL DEFAULT '',
             target_language TEXT NOT NULL DEFAULT '',
-            is_favorite INTEGER NOT NULL DEFAULT 0
+            is_favorite INTEGER NOT NULL DEFAULT 0,
+            char_count INTEGER NOT NULL DEFAULT 0
         );
         CREATE INDEX IF NOT EXISTS idx_queries_account_created
             ON queries(account_id, created_at DESC);
@@ -266,9 +278,117 @@ actor HistoryStore {
         guard let database else { throw HistoryStoreError.databaseUnavailable }
         if !didCreateSchema {
             try createSchema(database)
+            try ensureColumns(database)
+            try migrateLegacyRows(database)
             didCreateSchema = true
         }
         return database
+    }
+
+    private func ensureColumns(_ db: OpaquePointer) throws {
+        try addColumnIfNeeded(
+            "char_count",
+            definition: "INTEGER NOT NULL DEFAULT 0",
+            in: db
+        )
+    }
+
+    private func addColumnIfNeeded(
+        _ name: String,
+        definition: String,
+        in db: OpaquePointer
+    ) throws {
+        var errorPointer: UnsafeMutablePointer<CChar>?
+        let result = sqlite3_exec(
+            db,
+            "ALTER TABLE queries ADD COLUMN \(name) \(definition);",
+            nil,
+            nil,
+            &errorPointer
+        )
+        if result == SQLITE_OK {
+            sqlite3_free(errorPointer)
+            return
+        }
+        let message = errorPointer.map { String(cString: $0) } ?? "unknown"
+        sqlite3_free(errorPointer)
+        if message.contains("duplicate column name") {
+            return
+        }
+        throw HistoryStoreError.sqlite(message)
+    }
+
+    /// Encrypt legacy plaintext rows in place once a key is available. If the
+    /// Keychain is unavailable, keep the plaintext readable and retry on the
+    /// next launch instead of losing the user's history.
+    private func migrateLegacyRows(_ db: OpaquePointer) throws {
+        let cipher = currentCipher()
+        let selectSQL = """
+        SELECT id, source_text, translated_text, context, app_name, bundle_id
+        FROM queries
+        WHERE source_text NOT LIKE 'enc:v1:%';
+        """
+        let select = try prepare(selectSQL, in: db)
+        defer { sqlite3_finalize(select) }
+
+        let update = try prepare(
+            "UPDATE queries SET source_text = ?, translated_text = ?, context = ?, app_name = ?, bundle_id = ?, char_count = ? WHERE id = ?;",
+            in: db
+        )
+        defer { sqlite3_finalize(update) }
+
+        while sqlite3_step(select) == SQLITE_ROW {
+            let id = sqlite3_column_int64(select, 0)
+            let source = text(select, 1)
+            let translation = text(select, 2)
+            let context = text(select, 3)
+            let appName = text(select, 4)
+            let bundleID = text(select, 5)
+
+            let encryptedSource = try encryptedIfNeeded(source, cipher: cipher)
+            let encryptedTranslation = try encryptedIfNeeded(translation, cipher: cipher)
+            let encryptedContext = try encryptedIfNeeded(context, cipher: cipher)
+            let encryptedAppName = try encryptedIfNeeded(appName, cipher: cipher)
+            let encryptedBundleID = try encryptedIfNeeded(bundleID, cipher: cipher)
+
+            try bind(encryptedSource, to: update, index: 1)
+            try bind(encryptedTranslation, to: update, index: 2)
+            try bind(encryptedContext, to: update, index: 3)
+            try bind(encryptedAppName, to: update, index: 4)
+            try bind(encryptedBundleID, to: update, index: 5)
+            sqlite3_bind_int64(update, 6, Int64(source.count))
+            sqlite3_bind_int64(update, 7, id)
+            guard sqlite3_step(update) == SQLITE_DONE else {
+                throw lastError(db)
+            }
+            sqlite3_reset(update)
+            sqlite3_clear_bindings(update)
+        }
+    }
+
+    private func encryptedIfNeeded(
+        _ value: String,
+        cipher: HistoryCipher
+    ) throws -> String {
+        guard cipher.isAvailable, !HistoryCipher.isEncrypted(value) else {
+            return value
+        }
+        return try cipher.encrypt(value)
+    }
+
+    private func currentCipher() -> HistoryCipher {
+        if let cipher { return cipher }
+        let loaded = HistoryCipher(keyOverride: encryptionKeyOverride)
+        cipher = loaded
+        return loaded
+    }
+
+    private func requireCipher() throws -> HistoryCipher {
+        let loaded = currentCipher()
+        guard loaded.isAvailable else {
+            throw HistoryCipherError.keyUnavailable
+        }
+        return loaded
     }
 
     private func prepare(_ sql: String, in db: OpaquePointer) throws -> OpaquePointer {
@@ -286,24 +406,37 @@ actor HistoryStore {
         }
     }
 
-    private func readRecord(from statement: OpaquePointer) -> QueryRecord {
+    private func readRecord(
+        from statement: OpaquePointer,
+        cipher: HistoryCipher
+    ) -> QueryRecord {
         let id = sqlite3_column_int64(statement, 0)
         let accountID = UUID(uuidString: text(statement, 1)) ?? UUID()
         let createdAt = Date(timeIntervalSince1970: sqlite3_column_double(statement, 2))
+        let source = decrypted(text(statement, 3), cipher: cipher)
+        let translation = decrypted(text(statement, 4), cipher: cipher)
+        let context = decrypted(text(statement, 5), cipher: cipher)
+        let appName = decrypted(text(statement, 6), cipher: cipher)
+        let bundleID = decrypted(text(statement, 7), cipher: cipher)
         return QueryRecord(
             id: id,
             accountID: accountID,
             createdAt: createdAt,
-            sourceText: text(statement, 3),
-            translatedText: text(statement, 4),
-            context: text(statement, 5),
-            appName: text(statement, 6),
-            bundleID: text(statement, 7).isEmpty ? nil : text(statement, 7),
+            sourceText: source,
+            translatedText: translation,
+            context: context,
+            appName: appName,
+            bundleID: bundleID.isEmpty ? nil : bundleID,
             sourceKind: text(statement, 8),
             engine: text(statement, 9),
             targetLanguage: text(statement, 10),
             isFavorite: sqlite3_column_int(statement, 11) != 0
         )
+    }
+
+    private func decrypted(_ value: String, cipher: HistoryCipher) -> String {
+        guard HistoryCipher.isEncrypted(value) else { return value }
+        return (try? cipher.decrypt(value)) ?? "🔒 历史不可解密"
     }
 
     private func text(_ statement: OpaquePointer, _ index: Int32) -> String {
