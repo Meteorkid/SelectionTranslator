@@ -22,7 +22,7 @@ final class OfflineDictionary {
     func lookup(_ text: String) -> String? {
         loadIfNeeded()
 
-        var key = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let key = text.trimmingCharacters(in: .whitespacesAndNewlines)
             .trimmingCharacters(in: .punctuationCharacters)
             .replacingOccurrences(of: "’", with: "'")
             .lowercased()

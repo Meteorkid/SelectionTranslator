@@ -12,7 +12,7 @@ final class SparkleUpdater: NSObject, SPUStandardUserDriverDelegate {
     /// Menu-bar apps have no Dock presence; declaring gentle reminders
     /// prevents Sparkle from treating an automatic check as a disruptive
     /// background alert.
-    var supportsGentleScheduledUpdateReminders: Bool { true }
+    nonisolated var supportsGentleScheduledUpdateReminders: Bool { true }
 
     private override init() {
         super.init()
