@@ -47,14 +47,21 @@ final class LocalAccountStore: ObservableObject {
         )
         fileURL = directory.appendingPathComponent("profiles.json")
 
-        if let data = try? Data(contentsOf: fileURL),
-           let snapshot = try? JSONDecoder().decode(LocalAccountSnapshot.self, from: data),
-           !snapshot.profiles.isEmpty {
+        let existingData = try? Data(contentsOf: fileURL)
+        let snapshot = existingData.flatMap {
+            try? JSONDecoder().decode(LocalAccountSnapshot.self, from: $0)
+        }
+        if let snapshot, !snapshot.profiles.isEmpty {
             profiles = snapshot.profiles
             activeID = snapshot.profiles.contains { $0.id == snapshot.activeID }
                 ? snapshot.activeID
                 : snapshot.profiles[0].id
         } else {
+            // Never silently destroy a malformed profiles file: keep a
+            // timestamped copy so account names and IDs remain recoverable.
+            if existingData != nil {
+                Self.backupCorruptProfiles(at: fileURL)
+            }
             let defaultName = NSFullUserName().trimmingCharacters(in: .whitespacesAndNewlines)
             let profile = LocalProfile(name: defaultName.isEmpty ? "本地账户" : defaultName)
             profiles = [profile]
@@ -107,6 +114,21 @@ final class LocalAccountStore: ObservableObject {
             activeID = profiles[0].id
         }
         save()
+    }
+
+    private static func backupCorruptProfiles(at fileURL: URL) {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyyMMdd-HHmmss"
+        let backup = fileURL
+            .deletingLastPathComponent()
+            .appendingPathComponent("profiles.invalid-\(formatter.string(from: Date())).json")
+        guard !FileManager.default.fileExists(atPath: backup.path) else { return }
+        try? FileManager.default.copyItem(at: fileURL, to: backup)
+        try? FileManager.default.setAttributes(
+            [.posixPermissions: 0o600],
+            ofItemAtPath: backup.path
+        )
     }
 
     private func save() {
