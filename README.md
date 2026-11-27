@@ -22,7 +22,7 @@ GitHub Releases：<https://github.com/Meteorkid/SelectionTranslator/releases>
 
 - 菜单栏 App，不占 Dock；默认快捷键可改
 - 划词翻译：Accessibility 读取选区，自动带入前后文（默认 1,600 字符）
-- 鼠标划词：选区结束后在鼠标附近出现“译”图标；点击或悬停 550ms 翻译，4.5 秒自动消失
+- 鼠标划词：选区结束后在鼠标附近出现“译”图标；点击或悬停 550ms 翻译，4.5 秒自动消失；鼠标松开点远离焦点元素时丢弃陈旧选区
 - 剪贴板翻译：`⌥V`，不依赖辅助功能
 - 输入翻译窗口：`⌥A`，可手动贴一段文章
 - 截图 OCR：`⌥O`；静默 OCR：`⌥⇧S`（只把识别文字复制到剪贴板）
@@ -41,7 +41,7 @@ GitHub Releases：<https://github.com/Meteorkid/SelectionTranslator/releases>
 - 剪贴板降级安全化：目标 PID 定向复制、等待 `changeCount`、保留/恢复剪贴板快照，文件复制不会被当成选中文字
 - Safari Web Extension：已生成并签名 `browser-extension/safari-project`，在 Safari 里启用并授予“所有网站”权限后，选区浮标 → 外部协议 → App 面板的端到端链路已走通
 - 轻量更新检查：设置里填版本 JSON 地址；手动检查可显示“发现新版本 / 已是最新 / 未配置”，不会自动下载安装
-- 自动化回归：`SelectionTranslatorTests` 共 20 个 XCTest 用例，覆盖 URL 解析、设置迁移（含外观回退）、Prompt、缓存 key、更新比较、History/CSV、OCR 版面与多 pass 评分
+- 自动化回归：`SelectionTranslatorTests` 共 24 个 XCTest 用例，覆盖 URL 解析、设置迁移（含外观回退）、Prompt、缓存 key、更新比较、History/CSV、OCR 版面与多 pass 评分、鼠标点校验
 - URL Scheme：`selectiontranslator://translate?...`、`clipboard`、`input`、`ocr`、`silent-ocr`、`library`、`settings`
 - 52 种目标语言目录，系统翻译与模型可用性因语言而异
 - 设置页：账户 / 翻译 / 上下文 / 快捷键 / 数据与权限，五个 Tab
@@ -92,7 +92,7 @@ xcodebuild test \
   -derivedDataPath build/DerivedData
 ```
 
-当前 20 个 XCTest 用例全部通过；最后一次结果：`** TEST SUCCEEDED **`。
+当前 24 个 XCTest 用例全部通过；最后一次结果：`** TEST SUCCEEDED **`。
 
 ## 浏览器扩展
 

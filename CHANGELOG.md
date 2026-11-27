@@ -5,8 +5,10 @@
 - 浏览器/Electron AX 树预启用，Chrome 原生取词补上 AX text marker 上下文。
 - AX 调用增加 0.20s 超时；Chromium 聚焦元素 bounded fallback；安全输入和密码字段 fail closed；system-wide 焦点回退校验前台 PID。
 - 剪贴板降级改为目标 PID + `changeCount` + 快照恢复，文件复制不当作选中文字。
+- 鼠标划词增加焦点元素 bounds + 20pt 容差校验，点击工具栏/侧边栏时不会把旧选区当成新选区。
 - OCR 增加语言自动检测、同行碎片合并和段落间距重建；新增 4 个 OCR 版面测试，XCTest 共 17 个。
 - OCR 增加低置信度多 pass：灰度/对比度/锐化增强、深色反色兜底、按置信度/字符数/行数评分；新增 3 个质量与增强测试，XCTest 共 20 个。
+- 鼠标划词增加点击点校验，新增 4 个单元测试；XCTest 共 24 个。
 - 细节见 `docs/open-source-capture-ocr-review.md`；未改变 v0.4.0 Release。
 
 ## 0.4.0 — 2026-11-26

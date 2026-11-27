@@ -220,6 +220,34 @@ enum AX {
         return nil
     }
 
+    /// Returns the focused element's frame in AX screen coordinates.
+    /// Some apps do not expose position or size; callers treat that as
+    /// "cannot validate" rather than rejecting a valid selection.
+    static func frame(of element: AXUIElement) -> CGRect? {
+        guard let positionValue: AXValue = copy(
+            element,
+            kAXPositionAttribute,
+            as: AXValue.self
+        ),
+        let sizeValue: AXValue = copy(
+            element,
+            kAXSizeAttribute,
+            as: AXValue.self
+        ) else {
+            return nil
+        }
+
+        var position = CGPoint.zero
+        var size = CGSize.zero
+        guard AXValueGetValue(positionValue, .cgPoint, &position),
+              AXValueGetValue(sizeValue, .cgSize, &size),
+              size.width > 0,
+              size.height > 0 else {
+            return nil
+        }
+        return CGRect(origin: position, size: size)
+    }
+
     static func windowTitle(of element: AXUIElement) -> String? {
         if let title: String = copy(element, kAXTitleAttribute) {
             return title

@@ -23,7 +23,7 @@
 | [Pot Desktop](https://github.com/pot-app/pot-desktop) | JS/Rust / GPL-3.0 | 多服务插件、跨平台 OCR | Tauri/插件体系与原生单 App 的取舍不同 |
 | [Blurt](https://github.com/AGIHunt/blurt) | Swift/Rust / MIT | 屏幕文字、OCR 测试样例 | 产品中心是语音输入/记录，不是划词翻译 |
 | [VocabPocket](https://github.com/alanzeng423/VocabPocket) | Swift / MIT | OCR 原图、增强、反色多 pass 和结果评分 | 功能面更宽，翻译服务/生词本不是本次目标 |
-| [MoePeek](https://github.com/cosZone/MoePeek) | Swift / AGPL-3.0 | AX → AppleScript → 剪贴板三级兜底、截图浮层保护、剪贴板访问门 | AGPL，只参考行为，不复制源码 |
+| [MoePeek](https://github.com/cosZone/MoePeek) | Swift / AGPL-3.0 | AX → AppleScript → 剪贴板三级兜底、鼠标点击点校验、截图浮层保护、剪贴板访问门 | AGPL，只参考行为，不复制源码 |
 | [invisible-translator](https://github.com/on1ymyse1f/invisible-translator) | Swift / MIT | `AXSelectedTextMarkerRange` 读取 WebKit/Chromium 选区 | 产品侧重点在屏幕字幕与本地翻译 |
 
 Cida 的关键源码位置：
@@ -103,10 +103,12 @@ Chrome 的 `AXValue` 是空的，`AXStringForRange` 也不支持；但 `AXTextMa
 ## 验证
 
 - `./scripts/build.sh`：**BUILD SUCCEEDED**
-- `xcodebuild test ...`：**Executed 20 tests, with 0 failures**
+- `xcodebuild test ...`：**Executed 24 tests, with 0 failures**
 - Chrome 本地页面：`selection-probe` 读到 214 字符选区 + 339 字符上下文
 - 剪贴板 probe：目标 Chrome 选区复制成功（214 字符），剪贴板快照 `restored: true`
 - OCR probe：对 0.4.0 设置页、深色背景白字、灰底灰字合成图均能识别；设置页输出 222 字符，同行碎片合并、段落空行符合预期
+- 鼠标点击点校验：`SelectionHitTest` 4 个单元测试覆盖元素内、20pt 容差边缘、远端拒绝和 Cocoa→AX 坐标翻转
+- 实机 Chrome 拖选：译图标正常出现，说明点校验没有误杀合法选区
 
 ## 已知边界
 
@@ -123,3 +125,4 @@ Chrome 的 `AXValue` 是空的，`AXStringForRange` 也不支持；但 `AXTextMa
 3. 把 OCR 版面算法扩展到多栏、表格和竖排。
 4. 参考 `MoePeek` 的行为，补截图浮层期间的剪贴板兜底保护，以及并发剪贴板访问门；不复制 AGPL 代码。
 5. 再考虑第二个翻译服务；在此之前不引入插件系统。
+6. 鼠标点校验目前只覆盖鼠标路径；键盘快捷键仍按用户显式操作读取选区，不做位置过滤。

@@ -53,7 +53,10 @@ enum SelectionCaptureService {
         AX.prepareAccessibility(for: app)
     }
 
-    static func accessibilityCapture(maxContextLength: Int) -> CaptureResult? {
+    static func accessibilityCapture(
+        maxContextLength: Int,
+        near point: CGPoint? = nil
+    ) -> CaptureResult? {
         guard !IsSecureEventInputEnabled() else { return nil }
 
         let app = NSWorkspace.shared.frontmostApplication
@@ -65,8 +68,23 @@ enum SelectionCaptureService {
         AX.prepareAccessibility(for: app)
 
         guard let element = AX.focusedElement(),
-              !AX.isSecureTextField(element),
-              let selected = AX.selectedText(of: element),
+              !AX.isSecureTextField(element) else {
+            return nil
+        }
+
+        if let point,
+           let frame = AX.frame(of: element) {
+            let primaryHeight = NSScreen.screens.first?.frame.height ?? 0
+            let axPoint = SelectionHitTest.accessibilityPoint(
+                fromCocoa: point,
+                primaryScreenHeight: primaryHeight
+            )
+            guard SelectionHitTest.isPoint(axPoint, near: frame) else {
+                return nil
+            }
+        }
+
+        guard let selected = AX.selectedText(of: element),
               !selected.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return nil
         }

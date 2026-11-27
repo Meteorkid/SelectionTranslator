@@ -110,7 +110,8 @@ final class MouseSelectionMonitor {
 
         SelectionCaptureService.prepareAccessibility(for: NSWorkspace.shared.frontmostApplication)
         guard let capture = SelectionCaptureService.accessibilityCapture(
-            maxContextLength: maxContextLength
+            maxContextLength: maxContextLength,
+            near: NSEvent.mouseLocation
         ) else {
             return
         }
