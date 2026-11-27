@@ -307,12 +307,58 @@ enum AppAppearance: String, CaseIterable, Codable, Hashable, Sendable {
     case liquidGlass
 }
 
+enum TranslationStyle: String, CaseIterable, Codable, Sendable {
+    case natural
+    case faithful
+    case academic
+    case technical
+    case concise
+
+    var title: String {
+        switch self {
+        case .natural: return "自然"
+        case .faithful: return "忠实"
+        case .academic: return "学术"
+        case .technical: return "技术"
+        case .concise: return "简洁"
+        }
+    }
+
+    var promptInstruction: String {
+        switch self {
+        case .natural:
+            return "Prefer natural, idiomatic target-language phrasing while preserving the author's meaning."
+        case .faithful:
+            return "Stay close to the source structure and wording; do not add interpretation."
+        case .academic:
+            return "Use precise academic register, keep terminology consistent, and preserve hedging and citations."
+        case .technical:
+            return "Use precise technical terminology; preserve identifiers, API names, and code exactly."
+        case .concise:
+            return "Be compact and direct; remove redundancy without dropping essential meaning."
+        }
+    }
+}
+
+struct GlossaryEntry: Codable, Equatable, Identifiable, Sendable {
+    var id: UUID = UUID()
+    var term: String = ""
+    var translation: String = ""
+
+    var isValid: Bool {
+        !term.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && !translation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+}
+
 struct AppSettings: Codable, Equatable, Sendable {
     var appearance: AppAppearance = .native
     var apiBaseURL: String = "https://api.deepseek.com/v1"
     var model: String = "deepseek-chat"
     var providerName: String = "DeepSeek"
     var targetLanguage: String = "简体中文"
+    var translationStyle: TranslationStyle = .natural
+    var glossary: [GlossaryEntry] = []
     var contextLength: Int = 1600
     var useClipboardFallback: Bool = true
     var temperature: Double = 0.2
@@ -322,6 +368,8 @@ struct AppSettings: Codable, Equatable, Sendable {
     var useAppleDictionary: Bool = true
     var enableMouseSelection: Bool = true
     var mouseHoverTranslate: Bool = true
+    var autoTranslateOnSelection: Bool = false
+    var excludedBundleIDs: [String] = []
     var useDocumentContext: Bool = true
     var documentContextMaxChars: Int = 6000
     var ankiURL: String = "http://127.0.0.1:8765"
@@ -329,6 +377,11 @@ struct AppSettings: Codable, Equatable, Sendable {
     var ankiModel: String = "Basic"
     var ankiTags: String = "SelectionTranslator"
     var hotkeys = HotKeySettings.default
+
+    func isAppExcluded(_ bundleID: String?) -> Bool {
+        guard let bundleID, !bundleID.isEmpty else { return false }
+        return excludedBundleIDs.contains(bundleID)
+    }
 
     /// Ollama / LM Studio 等本地服务通常不校验 API Key。
     var isLocalProvider: Bool {
@@ -357,6 +410,8 @@ struct AppSettings: Codable, Equatable, Sendable {
         case model
         case providerName
         case targetLanguage
+        case translationStyle
+        case glossary
         case contextLength
         case useClipboardFallback
         case temperature
@@ -366,6 +421,8 @@ struct AppSettings: Codable, Equatable, Sendable {
         case useAppleDictionary
         case enableMouseSelection
         case mouseHoverTranslate
+        case autoTranslateOnSelection
+        case excludedBundleIDs
         case useDocumentContext
         case documentContextMaxChars
         case ankiURL
@@ -383,6 +440,8 @@ struct AppSettings: Codable, Equatable, Sendable {
         model = try container.decodeIfPresent(String.self, forKey: .model) ?? defaults.model
         providerName = try container.decodeIfPresent(String.self, forKey: .providerName) ?? ""
         targetLanguage = try container.decodeIfPresent(String.self, forKey: .targetLanguage) ?? defaults.targetLanguage
+        translationStyle = try container.decodeIfPresent(TranslationStyle.self, forKey: .translationStyle) ?? defaults.translationStyle
+        glossary = try container.decodeIfPresent([GlossaryEntry].self, forKey: .glossary) ?? defaults.glossary
         contextLength = try container.decodeIfPresent(Int.self, forKey: .contextLength) ?? defaults.contextLength
         useClipboardFallback = try container.decodeIfPresent(Bool.self, forKey: .useClipboardFallback) ?? defaults.useClipboardFallback
         temperature = try container.decodeIfPresent(Double.self, forKey: .temperature) ?? defaults.temperature
@@ -392,6 +451,8 @@ struct AppSettings: Codable, Equatable, Sendable {
         useAppleDictionary = try container.decodeIfPresent(Bool.self, forKey: .useAppleDictionary) ?? defaults.useAppleDictionary
         enableMouseSelection = try container.decodeIfPresent(Bool.self, forKey: .enableMouseSelection) ?? defaults.enableMouseSelection
         mouseHoverTranslate = try container.decodeIfPresent(Bool.self, forKey: .mouseHoverTranslate) ?? defaults.mouseHoverTranslate
+        autoTranslateOnSelection = try container.decodeIfPresent(Bool.self, forKey: .autoTranslateOnSelection) ?? defaults.autoTranslateOnSelection
+        excludedBundleIDs = try container.decodeIfPresent([String].self, forKey: .excludedBundleIDs) ?? defaults.excludedBundleIDs
         useDocumentContext = try container.decodeIfPresent(Bool.self, forKey: .useDocumentContext) ?? defaults.useDocumentContext
         documentContextMaxChars = try container.decodeIfPresent(Int.self, forKey: .documentContextMaxChars) ?? defaults.documentContextMaxChars
         ankiURL = try container.decodeIfPresent(String.self, forKey: .ankiURL) ?? defaults.ankiURL

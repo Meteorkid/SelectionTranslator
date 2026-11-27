@@ -53,6 +53,12 @@ actor HistoryStore {
         }
         database = handle
         sqlite3_busy_timeout(handle, 5_000)
+        // Translation history is sensitive reading material. Restrict the
+        // database to the current user until field-level encryption lands.
+        try? FileManager.default.setAttributes(
+            [.posixPermissions: 0o600],
+            ofItemAtPath: resolvedURL.path
+        )
     }
 
     deinit {

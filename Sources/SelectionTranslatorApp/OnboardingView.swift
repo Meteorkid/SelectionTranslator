@@ -5,6 +5,9 @@ struct OnboardingView: View {
     let onComplete: () -> Void
     let onOpenPrivacy: () -> Void
 
+    @State private var accessibilityTrusted = false
+    @State private var screenRecordingTrusted = false
+
     private struct Point: Identifiable {
         let id = UUID()
         let icon: String
@@ -48,6 +51,7 @@ struct OnboardingView: View {
                     pointCard(point)
                 }
 
+                setupCard
                 privacyNote
             }
             .padding(.horizontal, 26)
@@ -58,9 +62,10 @@ struct OnboardingView: View {
 
             footer
         }
-        .frame(width: 620, height: 560)
+        .frame(width: 620, height: 640)
         .background(STWindowBackdrop(appearance: appearance))
         .stAppearance(appearance)
+        .onAppear(perform: refreshPermissions)
     }
 
     private var header: some View {
@@ -88,6 +93,94 @@ struct OnboardingView: View {
         .padding(.horizontal, 26)
         .padding(.vertical, 20)
         .background(STHeaderSurface())
+    }
+
+    private var setupCard: some View {
+        STPanelSurface {
+            VStack(alignment: .leading, spacing: 9) {
+                HStack {
+                    Text("建议先完成两项系统授权")
+                        .font(.system(size: 12.5, weight: .semibold))
+                    Spacer()
+                    Text("可稍后")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.tertiary)
+                }
+
+                permissionRow(
+                    icon: "accessibility",
+                    title: "辅助功能",
+                    detail: "划词取词与快捷键",
+                    trusted: accessibilityTrusted,
+                    actionTitle: accessibilityTrusted ? "已授权" : "打开设置"
+                ) {
+                    Permissions.openAccessibilitySettings()
+                }
+
+                permissionRow(
+                    icon: "rectangle.dashed.badge.record",
+                    title: "屏幕录制",
+                    detail: "截图 OCR",
+                    trusted: screenRecordingTrusted,
+                    actionTitle: screenRecordingTrusted ? "已授权" : "请求授权"
+                ) {
+                    _ = Permissions.requestScreenRecordingPermission()
+                    refreshPermissions()
+                }
+
+                HStack(spacing: 8) {
+                    Button("刷新状态") {
+                        refreshPermissions()
+                    }
+                    .buttonStyle(.borderless)
+                    .font(.system(size: 10))
+
+                    Text("不授权也能用剪贴板翻译、输入翻译和浏览器扩展。")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.tertiary)
+                }
+            }
+            .padding(13)
+        }
+    }
+
+    private func permissionRow(
+        icon: String,
+        title: String,
+        detail: String,
+        trusted: Bool,
+        actionTitle: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        HStack(spacing: 9) {
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(trusted ? Color.green : Color.orange)
+                .frame(width: 20)
+
+            Text(title)
+                .font(.system(size: 11.5, weight: .medium))
+            Text(detail)
+                .font(.system(size: 10.5))
+                .foregroundStyle(.secondary)
+
+            Spacer()
+
+            STStatusBadge(
+                text: trusted ? "已授权" : "未授权",
+                tone: trusted ? .success : .warning
+            )
+
+            Button(actionTitle, action: action)
+                .buttonStyle(.bordered)
+                .controlSize(.mini)
+                .disabled(trusted)
+        }
+    }
+
+    private func refreshPermissions() {
+        accessibilityTrusted = Permissions.isAccessibilityTrusted(prompt: false)
+        screenRecordingTrusted = Permissions.hasScreenRecordingPermission()
     }
 
     private func pointCard(_ point: Point) -> some View {

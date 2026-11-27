@@ -1,9 +1,15 @@
 import SwiftUI
 import AppKit
+import PDFKit
 
 private struct OllamaTags: Decodable {
     struct Model: Decodable { let name: String }
     let models: [Model]
+}
+
+private struct RunningAppOption: Identifiable {
+    let id: String
+    let name: String
 }
 
 private enum SettingsTab: String, CaseIterable, Identifiable {
@@ -61,6 +67,10 @@ struct SettingsView: View {
     @State private var renameText = ""
     @State private var showingDeleteAccount = false
     @State private var documentContext = ""
+    @State private var newGlossaryTerm = ""
+    @State private var newGlossaryTranslation = ""
+    @State private var pdfImportMessage: String?
+    @State private var isImportingPDF = false
     @State private var ankiHealth: String?
     @State private var ankiExportMessage: String?
     @State private var isTestingAnki = false
@@ -542,6 +552,69 @@ struct SettingsView: View {
             } header: {
                 STSectionHeader(title: "翻译行为", systemImage: "slider.horizontal.3")
             }
+
+            Section {
+                Picker("译文风格", selection: $store.settings.translationStyle) {
+                    ForEach(TranslationStyle.allCases, id: \.self) { style in
+                        Text(style.title).tag(style)
+                    }
+                }
+
+                Toggle("选中后立即翻译（跳过浮标）", isOn: $store.settings.autoTranslateOnSelection)
+                    .disabled(!store.settings.enableMouseSelection)
+
+                Text("立即翻译会在每次划词后直接调用翻译链，适合高频阅读；不确定时保持关闭，先用浮标确认选区。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } header: {
+                STSectionHeader(title: "阅读节奏", systemImage: "hare")
+            }
+
+            Section {
+                Text("术语表会在提示词里要求模型优先采用指定译法；适合人名、产品名、论文术语。留空不生效。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                ForEach($store.settings.glossary) { $entry in
+                    HStack(spacing: 8) {
+                        TextField("原文术语", text: $entry.term)
+                            .textFieldStyle(.roundedBorder)
+                        Image(systemName: "arrow.right")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(.tertiary)
+                        TextField("指定译法", text: $entry.translation)
+                            .textFieldStyle(.roundedBorder)
+                        Button {
+                            store.settings.glossary.removeAll { $0.id == entry.id }
+                        } label: {
+                            Image(systemName: "trash")
+                                .frame(width: 18)
+                        }
+                        .buttonStyle(.borderless)
+                        .help("删除这条术语")
+                    }
+                }
+
+                HStack(spacing: 8) {
+                    TextField("原文术语", text: $newGlossaryTerm)
+                        .textFieldStyle(.roundedBorder)
+                    TextField("指定译法", text: $newGlossaryTranslation)
+                        .textFieldStyle(.roundedBorder)
+                    Button("添加") {
+                        let entry = GlossaryEntry(term: newGlossaryTerm, translation: newGlossaryTranslation)
+                        guard entry.isValid else { return }
+                        store.settings.glossary.append(entry)
+                        newGlossaryTerm = ""
+                        newGlossaryTranslation = ""
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(!GlossaryEntry(term: newGlossaryTerm, translation: newGlossaryTranslation).isValid)
+                }
+            } header: {
+                STSectionHeader(title: "术语表", systemImage: "character.book.closed")
+            }
         }
         .stFormSurface()
     }
@@ -666,6 +739,13 @@ struct SettingsView: View {
 
                     Spacer()
 
+                    Button(isImportingPDF ? "导入中…" : "从 PDF 导入") {
+                        importPDF()
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .disabled(isImportingPDF)
+
                     Button("从剪贴板填入") {
                         if let text = NSPasteboard.general.string(forType: .string) {
                             documentContext = String(text.prefix(DocumentContextRepository.maxStoredCharacters))
@@ -697,9 +777,17 @@ struct SettingsView: View {
                     step: 1000
                 )
 
-                Text("文档上下文只保存在本机，按账户隔离；不会上传到除你配置的翻译服务以外的任何地方。")
+                Text("文档上下文只保存在本机，按账户隔离；上下文文件使用 AES-GCM 加密，只有主动翻译时才会把与选区相关的一段发送给你配置的服务。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if let pdfImportMessage {
+                    Text(pdfImportMessage)
+                        .font(.caption)
+                        .foregroundStyle(pdfImportMessage.hasPrefix("已导入") ? Color.secondary : Color.red)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             } header: {
                 STSectionHeader(title: "整篇文章上下文", systemImage: "doc.text")
             }
@@ -839,6 +927,59 @@ struct SettingsView: View {
             }
 
             Section {
+                if store.settings.excludedBundleIDs.isEmpty {
+                    Text("目前没有排除的 App。终端、密码框和某些 Electron App 可以在下面加入排除名单。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    ForEach(store.settings.excludedBundleIDs, id: \.self) { bundleID in
+                        HStack(spacing: 8) {
+                            Text(appDisplayName(for: bundleID))
+                                .font(.system(size: 12))
+                            Text(bundleID)
+                                .font(.system(size: 10, design: .monospaced))
+                                .foregroundStyle(.tertiary)
+                                .lineLimit(1)
+                            Spacer()
+                            Button {
+                                store.settings.excludedBundleIDs.removeAll { $0 == bundleID }
+                            } label: {
+                                Image(systemName: "trash")
+                                    .frame(width: 16)
+                            }
+                            .buttonStyle(.borderless)
+                            .help("从这个排除名单移除")
+                        }
+                    }
+                }
+
+                Menu {
+                    if addableApps.isEmpty {
+                        Text("没有可添加的前台 App")
+                    } else {
+                        ForEach(addableApps) { app in
+                            Button(app.name) {
+                                guard !store.settings.excludedBundleIDs.contains(app.id) else { return }
+                                store.settings.excludedBundleIDs.append(app.id)
+                            }
+                        }
+                    }
+                } label: {
+                    Label("添加正在运行的 App", systemImage: "plus")
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+
+                Text("排除后鼠标划词不出现“译”图标，快捷键也会提示已排除；剪贴板、输入翻译和截图 OCR 不受影响。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } header: {
+                STSectionHeader(title: "按 App 排除", systemImage: "app.dashed")
+            }
+
+            Section {
                 HStack(spacing: 8) {
                     Button("检查更新") { onCheckForUpdates() }
                         .buttonStyle(.bordered)
@@ -967,6 +1108,30 @@ struct SettingsView: View {
 
     // MARK: - Actions
 
+    private var addableApps: [RunningAppOption] {
+        let ownBundleID = Bundle.main.bundleIdentifier
+        let excluded = Set(store.settings.excludedBundleIDs)
+        var seen = Set<String>()
+        return NSWorkspace.shared.runningApplications.compactMap { app in
+            guard let bundleID = app.bundleIdentifier,
+                  bundleID != ownBundleID,
+                  !excluded.contains(bundleID),
+                  app.activationPolicy == .regular,
+                  seen.insert(bundleID).inserted else { return nil }
+            return RunningAppOption(
+                id: bundleID,
+                name: app.localizedName ?? bundleID
+            )
+        }
+        .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
+    private func appDisplayName(for bundleID: String) -> String {
+        NSWorkspace.shared.runningApplications
+            .first { $0.bundleIdentifier == bundleID }?
+            .localizedName ?? bundleID
+    }
+
     private func fieldRow<Content: View>(
         _ title: String,
         @ViewBuilder content: () -> Content
@@ -985,6 +1150,36 @@ struct SettingsView: View {
         store.settings.apiBaseURL = preset.baseURL
         store.settings.model = preset.model
         health = nil
+    }
+
+    private func importPDF() {
+        let panel = NSOpenPanel()
+        panel.title = "选择要作为上下文的 PDF"
+        panel.allowedFileTypes = ["pdf"]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.begin { response in
+            guard response == .OK, let url = panel.url else { return }
+            self.isImportingPDF = true
+            self.pdfImportMessage = nil
+            Task { @MainActor in
+                do {
+                    let text = try await Task.detached(priority: .userInitiated) {
+                        try PDFTextExtractor.extract(
+                            url: url,
+                            maxCharacters: DocumentContextRepository.maxStoredCharacters
+                        )
+                    }.value
+                    self.documentContext = text
+                    DocumentContextRepository.write(text, accountID: self.accountStore.activeID)
+                    self.pdfImportMessage = "已导入 \(text.count) 字符。翻译时只会发送与选区相关的一段。"
+                } catch {
+                    self.pdfImportMessage = "PDF 导入失败：\(error.localizedDescription)"
+                }
+                self.isImportingPDF = false
+            }
+        }
     }
 
     private func testAnki() {

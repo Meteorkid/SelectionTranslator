@@ -106,6 +106,27 @@ final class TranslationKeyTests: XCTestCase {
 
         XCTAssertNotEqual(keyA, keyB)
         XCTAssertNotEqual(keyA, keyC)
+
+        var styled = settings
+        styled.translationStyle = .technical
+        let styleKey = TranslationPipeline.cacheKey(
+            text: "word",
+            context: "ctx",
+            documentContext: "doc-a",
+            accountID: accountA,
+            settings: styled
+        )
+        XCTAssertNotEqual(keyA, styleKey)
+
+        styled.glossary = [GlossaryEntry(term: "word", translation: "词")]
+        let glossaryKey = TranslationPipeline.cacheKey(
+            text: "word",
+            context: "ctx",
+            documentContext: "doc-a",
+            accountID: accountA,
+            settings: styled
+        )
+        XCTAssertNotEqual(styleKey, glossaryKey)
     }
 }
 
@@ -145,6 +166,9 @@ final class HistoryStoreTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: directory) }
 
         let store = HistoryStore(databaseURL: databaseURL)
+        let attributes = try FileManager.default.attributesOfItem(atPath: databaseURL.path)
+        XCTAssertEqual((attributes[.posixPermissions] as? NSNumber)?.intValue, 0o600)
+
         let accountID = UUID()
         let record = QueryRecord(
             accountID: accountID,

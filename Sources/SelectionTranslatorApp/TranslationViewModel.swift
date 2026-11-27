@@ -225,7 +225,9 @@ final class TranslationViewModel: ObservableObject {
             apiKey: apiKey,
             temperature: settings.temperature,
             maxOutputTokens: settings.maxOutputTokens,
-            documentContext: capture.documentContext
+            documentContext: capture.documentContext,
+            style: settings.translationStyle,
+            glossary: settings.glossary
         )
 
         explainTask = Task { [weak self] in

@@ -23,6 +23,7 @@ final class AppState: ObservableObject {
     private var hasStartedUpdater = false
     private var settingsSink: AnyCancellable?
     private var hasShownPermissionHelp = false
+    private var externalURLGate = ExternalURLGate()
 
     init() {
         AppState.shared = self
@@ -52,6 +53,16 @@ final class AppState: ObservableObject {
 
         mouseSelectionMonitor.onSelection = { [weak self] capture, point in
             guard let self else { return }
+            guard !self.settingsStore.settings.isAppExcluded(capture.bundleID) else {
+                self.selectionIconController.hide()
+                return
+            }
+
+            if self.settingsStore.settings.autoTranslateOnSelection {
+                self.translate(capture)
+                return
+            }
+
             self.selectionIconController.show(
                 capture: capture,
                 near: point,
@@ -358,14 +369,20 @@ final class AppState: ObservableObject {
                 panelController.showError("URL 里没有 text 参数。")
                 return
             }
+            guard externalURLGate.accept(textLength: request.text.count) else {
+                panelController.showError(
+                    "外部调用过于频繁，或文本超过 \(ExternalURLGate.maxTextCharacters) 字符。请稍后再试。"
+                )
+                return
+            }
             let capture = CaptureResult(
-                selectedText: request.text,
-                context: request.context,
+                selectedText: String(request.text.prefix(ExternalURLGate.maxTextCharacters)),
+                context: String(request.context.prefix(ExternalURLGate.maxTextCharacters)),
                 appName: request.appName,
                 bundleID: nil,
                 windowTitle: request.title,
                 source: .browser,
-                documentContext: request.documentContext
+                documentContext: String(request.documentContext.prefix(ExternalURLGate.maxTextCharacters))
             )
             translate(capture)
         case .clipboard:
@@ -389,6 +406,10 @@ final class AppState: ObservableObject {
 
     func translate(_ capture: CaptureResult) {
         let settings = settingsStore.settings
+        guard !settings.isAppExcluded(capture.bundleID) else {
+            panelController.showError("已在设置里排除「\(capture.appName)」，不会在这个 App 里取词。")
+            return
+        }
         let localDocument = settings.useDocumentContext
             ? DocumentContextRepository.read(accountID: accountStore.activeID)
             : ""
@@ -402,7 +423,12 @@ final class AppState: ObservableObject {
             0,
             settings.documentContextMaxChars + (capture.documentContext.isEmpty ? 0 : capture.documentContext.count)
         )
-        let enriched = capture.withDocumentContext(String(mergedDocument.prefix(limit)))
+        let trimmedDocument = DocumentContextTrimmer.trim(
+            mergedDocument,
+            maxCharacters: limit,
+            selection: capture.selectedText
+        )
+        let enriched = capture.withDocumentContext(trimmedDocument)
 
         log.info("capture app=\(enriched.appName, privacy: .public) source=\(enriched.source.rawValue, privacy: .public) selectionLen=\(enriched.selectedText.count, privacy: .public) contextLen=\(enriched.context.count, privacy: .public) documentLen=\(enriched.documentContext.count, privacy: .public)")
 

@@ -77,7 +77,9 @@ enum TranslationPipeline {
                     apiKey: apiKey,
                     temperature: settings.temperature,
                     maxOutputTokens: settings.maxOutputTokens,
-                    documentContext: capture.documentContext
+                    documentContext: capture.documentContext,
+                    style: settings.translationStyle,
+                    glossary: settings.glossary
                 )
             )
         }
@@ -101,6 +103,11 @@ enum TranslationPipeline {
         [
             accountID?.uuidString ?? "",
             settings.targetLanguage,
+            settings.translationStyle.rawValue,
+            settings.glossary
+                .filter(\.isValid)
+                .map { "\($0.term)=\($0.translation)" }
+                .joined(separator: "\u{1F}"),
             settings.model,
             settings.apiBaseURL,
             text,

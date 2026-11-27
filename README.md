@@ -39,7 +39,7 @@ GitHub Releases：<https://github.com/Meteorkid/SelectionTranslator/releases/lat
 - 截图 OCR：`⌥O`；静默 OCR：`⌥⇧S`（只把识别文字复制到剪贴板）
 - OCR 版面重建：同一行的识别碎片合并；中英文续行按段落拼接，列表项/明显行距保留换行，段落间距保留空行
 - OCR 低置信度重试：原图不可靠时自动做灰度/对比度/锐化增强，必要时反色；按置信度、字符数和行数选择最佳 pass
-- 整篇文章上下文：设置「上下文」里可保存当前文章，按账户隔离；划词、剪贴板、输入、浏览器入口都会带上它
+- 整篇文章上下文：设置「上下文」里可保存或从 PDF 导入当前文章，按账户隔离；AES-GCM 加密保存，划词、剪贴板、输入、浏览器入口都会带上它
 - 单词快路径：macOS 系统词典 → 内置 ECDICT 5.6 万词库 → 缓存，几十毫秒，不经过模型
 - 模型翻译：OpenAI-compatible 流式接口，DeepSeek / OpenAI / Ollama / LM Studio 共用一套协议
 - 降级链：系统词典 → 离线词库 → 内存缓存 → 本地/在线模型 → macOS 系统翻译 → 显示原文并允许复制
@@ -98,7 +98,7 @@ https://github.com/Meteorkid/SelectionTranslator/releases/latest/download/appcas
 
 ## 文档上下文与 Anki
 
-- 设置 → 上下文：粘贴文章，按账户保存；翻译时最多发送 6,000 字符，可在 1,000–12,000 之间调整。
+- 设置 → 上下文：粘贴文章或从 PDF 导入，按账户保存；内容用 AES-GCM 加密，翻译时最多发送 6,000 字符，可在 1,000–12,000 之间调整。
 - 设置 → 上下文 → Anki：安装 Anki 与 AnkiConnect 插件（代码 `2055492159`），填地址 `http://127.0.0.1:8765`，测试连接后可发送收藏。
 - 历史与生词本 → 导出：JSONL 或 CSV；CSV 可直接给表格软件或 Anki 导入。
 
@@ -107,11 +107,11 @@ https://github.com/Meteorkid/SelectionTranslator/releases/latest/download/appcas
 ```text
 ~/Library/Application Support/SelectionTranslator/
 ├── profiles.json                         # 本地账户
-├── history.sqlite3                       # 历史 + 生词本
-└── document-context-<account-uuid>.txt   # 当前账户的整篇上下文
+├── history.sqlite3                       # 历史 + 生词本（0600）
+└── document-context-<account-uuid>.enc   # 当前账户的整篇上下文（AES-GCM）
 ```
 
-API Key 存在 Keychain（service `com.meteor.SelectionTranslator`，account `apiKey`）。没有云端同步，也没有账号密码。
+API Key 与上下文加密密钥存在 Keychain（service `com.meteor.SelectionTranslator`，account 分别为 `apiKey` 与 `documentContextKey`）。没有云端同步，也没有账号密码。
 
 ## 构建与测试
 
