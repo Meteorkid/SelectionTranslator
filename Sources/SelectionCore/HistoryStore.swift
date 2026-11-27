@@ -190,6 +190,10 @@ actor HistoryStore {
         guard sqlite3_step(statement) == SQLITE_DONE else { throw lastError(db) }
     }
 
+    var encryptionAvailable: Bool {
+        readableCipher().isAvailable
+    }
+
     func stats(accountID: UUID) throws -> HistoryStats {
         let db = try requireDatabase()
         let sql = """
@@ -211,6 +215,7 @@ actor HistoryStore {
     }
 
     func exportJSONL(accountID: UUID, to url: URL) throws {
+        guard readableCipher().isAvailable else { throw HistoryCipherError.keyUnavailable }
         let records = try allRecords(accountID: accountID)
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
@@ -229,6 +234,7 @@ actor HistoryStore {
 
 
     func exportCSV(accountID: UUID, to url: URL) throws {
+        guard readableCipher().isAvailable else { throw HistoryCipherError.keyUnavailable }
         let records = try allRecords(accountID: accountID)
         var lines = ["created_at,source,translation,context,app,engine,target_language,favorite"]
         let formatter = ISO8601DateFormatter()

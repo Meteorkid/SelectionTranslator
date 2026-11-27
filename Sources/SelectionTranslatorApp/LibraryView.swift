@@ -84,6 +84,10 @@ final class LibraryViewModel: ObservableObject {
     }
 
     func exportToAnki(accountID: UUID, settings: AppSettings) async {
+        guard await HistoryStore.shared.encryptionAvailable else {
+            errorMessage = HistoryCipherError.keyUnavailable.localizedDescription
+            return
+        }
         do {
             let favorites = try await HistoryStore.shared.records(
                 accountID: accountID,
