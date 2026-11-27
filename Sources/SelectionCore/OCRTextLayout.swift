@@ -27,16 +27,77 @@ enum OCRTextLayout {
         let heights = rows.map(\.frame.height).sorted()
         let medianHeight = heights[heights.count / 2]
         let paragraphGap = max(0.03, medianHeight * 1.7)
+        let lineGap = max(0.012, medianHeight * 0.8)
+        let rightEdge = rows.map(\.frame.maxX).max() ?? first.frame.maxX
 
         var output = first.text
         for (previous, row) in zip(rows, rows.dropFirst()) {
             let gap = row.frame.minY - previous.frame.maxY
-            output += gap > paragraphGap ? "\n\n" : "\n"
-            output += row.text
+            if gap > paragraphGap {
+                output += "\n\n" + row.text
+            } else if gap > lineGap
+                || startsListItem(row.text)
+                || hasRoom(for: row, after: previous, rightEdge: rightEdge) {
+                output += "\n" + row.text
+            } else {
+                output = joinWrapped(output, row.text)
+            }
         }
 
         let trimmed = output.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
+    }
+
+    /// A wrapped line only ends early when the next word does not fit, so
+    /// room for that word plus slack means the line was broken on purpose.
+    /// Widths are estimated from the previous row's average character width.
+    private static func hasRoom(
+        for row: Row,
+        after previous: Row,
+        rightEdge: CGFloat
+    ) -> Bool {
+        let characterWidth = previous.frame.width / CGFloat(max(previous.text.count, 1))
+        let room = rightEdge - previous.frame.maxX
+        let firstWord: Int
+        if let first = row.text.first, first.isCJKIdeograph {
+            firstWord = 1
+        } else {
+            firstWord = row.text.prefix { !$0.isWhitespace }.count
+        }
+        return room > characterWidth * (CGFloat(firstWord) * 1.4 + 1)
+    }
+
+    private static func startsListItem(_ text: String) -> Bool {
+        guard let first = text.first else { return false }
+        if "•◦▪▫‣∙·●○■□▸►".contains(first) {
+            return true
+        }
+        let rest = text.dropFirst()
+        if "-*+".contains(first) {
+            return rest.first == " "
+        }
+        let digits = text.prefix { $0.isASCII && $0.isNumber }
+        guard (1...3).contains(digits.count) else { return false }
+        let marker = text.dropFirst(digits.count)
+        if marker.first == "、" {
+            return true
+        }
+        return (marker.first == "." || marker.first == ")")
+            && marker.dropFirst().first == " "
+    }
+
+    /// CJK wraps without spaces; Latin wraps at a space or a hyphen.
+    private static func joinWrapped(_ head: String, _ tail: String) -> String {
+        guard let last = head.last, let first = tail.first else {
+            return head + tail
+        }
+        if last.isCJKIdeograph || first.isCJKIdeograph {
+            return head + tail
+        }
+        if last == "-", head.dropLast().last?.isLetter == true, first.isLowercase {
+            return String(head.dropLast()) + tail
+        }
+        return head + " " + tail
     }
 
     private struct Row {
@@ -73,6 +134,21 @@ enum OCRTextLayout {
                 $0.union($1.frame)
             }
             return Row(text: text, frame: frame)
+        }
+    }
+}
+
+
+private extension Character {
+    var isCJKIdeograph: Bool {
+        unicodeScalars.contains { scalar in
+            switch scalar.value {
+            case 0x3000...0x30FF, 0x3400...0x4DBF, 0x4E00...0x9FFF,
+                 0xF900...0xFAFF, 0xFF00...0xFFEF:
+                true
+            default:
+                false
+            }
         }
     }
 }

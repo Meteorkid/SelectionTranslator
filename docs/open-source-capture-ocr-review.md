@@ -97,6 +97,9 @@ Chrome 的 `AXValue` 是空的，`AXStringForRange` 也不支持；但 `AXTextMa
 - 同一视觉行的碎片按 x 坐标合并；
 - 行间距按中位行高判断，普通换行用单换行，段落间距用空行；
 - Vision 的 bottom-left bounding box 转成 top-left 坐标后再排序。
+- 相邻视觉行默认按段落拼接：只有明显行距、列表项、或上一行末尾仍有空间时保留换行；中文续行不加空格，英文续行加空格，连字符续行去掉连字符。
+
+这个“拼接而非逐行输出”的策略参考 Cida 的 `RecognizedTextLayout`，但保留本项目原有的段落空行规则。
 
 ## 第二轮：OCR 多 pass
 
@@ -115,13 +118,14 @@ Chrome 的 `AXValue` 是空的，`AXStringForRange` 也不支持；但 `AXTextMa
 ## 验证
 
 - `./scripts/build.sh`：**BUILD SUCCEEDED**
-- `xcodebuild test ...`：**Executed 30 tests, with 0 failures**
+- `xcodebuild test ...`：**Executed 33 tests, with 0 failures**
 - Chrome 本地页面：`selection-probe` 读到 92 字符选区 + 339 字符上下文（已重新编译当前代码）
 - 剪贴板 probe：目标 Chrome 选区复制成功（214 字符），剪贴板快照 `restored: true`
-- OCR probe：对 0.4.0 设置页、深色背景白字、灰底灰字合成图均能识别；设置页输出 222 字符，同行碎片合并、段落空行符合预期
+- OCR probe：对 0.4.0 设置页、深色背景白字、灰底灰字合成图均能识别；设置页输出 220 字符，同行碎片合并、段落拼接/空行符合预期
 - 鼠标点击点校验：`SelectionHitTest` 4 个单元测试覆盖元素内、20pt 容差边缘、远端拒绝和 Cocoa→AX 坐标翻转
 - 截图浮层检测：3 个单元测试覆盖全屏、半屏拒绝和跨显示器；正常桌面 probe 返回 `capturing=false`
 - marker 范围反查：3 个单元测试覆盖命中、未命中、空输入；Chrome 当前代码 probe 仍能带出完整上下文
+- OCR 段落拼接：3 个新增测试覆盖英文续行、列表项换行、中文无空格续行
 - 实机 Chrome 拖选：译图标正常出现，说明点校验没有误杀合法选区
 
 ## 已知边界

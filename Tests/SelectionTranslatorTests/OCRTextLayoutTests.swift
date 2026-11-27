@@ -40,11 +40,59 @@ final class OCRTextLayoutTests: XCTestCase {
             ),
             RecognizedLine(
                 text: "line two",
-                frame: CGRect(x: 0.10, y: 0.06, width: 0.70, height: 0.04)
+                frame: CGRect(x: 0.10, y: 0.09, width: 0.70, height: 0.04)
             )
         ]
 
         XCTAssertEqual(OCRTextLayout.text(from: lines), "line one\nline two")
+    }
+
+    func testWrappedLinesJoinIntoParagraph() {
+        let lines = [
+            RecognizedLine(
+                text: "The quick brown fox",
+                frame: CGRect(x: 0.04, y: 0.00, width: 0.80, height: 0.04)
+            ),
+            RecognizedLine(
+                text: "jumps over the dog.",
+                frame: CGRect(x: 0.04, y: 0.05, width: 0.55, height: 0.04)
+            )
+        ]
+
+        XCTAssertEqual(
+            OCRTextLayout.text(from: lines),
+            "The quick brown fox jumps over the dog."
+        )
+    }
+
+    func testListMarkerStartsNewLine() {
+        let lines = [
+            RecognizedLine(
+                text: "Intro",
+                frame: CGRect(x: 0.04, y: 0.00, width: 0.40, height: 0.04)
+            ),
+            RecognizedLine(
+                text: "• First item",
+                frame: CGRect(x: 0.04, y: 0.05, width: 0.40, height: 0.04)
+            )
+        ]
+
+        XCTAssertEqual(OCRTextLayout.text(from: lines), "Intro\n• First item")
+    }
+
+    func testChineseWrappedLinesJoinWithoutSpace() {
+        let lines = [
+            RecognizedLine(
+                text: "这是第一行",
+                frame: CGRect(x: 0.04, y: 0.00, width: 0.80, height: 0.04)
+            ),
+            RecognizedLine(
+                text: "这是第二行",
+                frame: CGRect(x: 0.04, y: 0.05, width: 0.40, height: 0.04)
+            )
+        ]
+
+        XCTAssertEqual(OCRTextLayout.text(from: lines), "这是第一行这是第二行")
     }
 
     func testEmptyInputReturnsNil() {

@@ -11,6 +11,7 @@
 - 鼠标划词增加点击点校验，新增 4 个单元测试；XCTest 共 24 个。
 - 剪贴板兜底增加截图浮层检测和串行化锁，避免截屏浮层吞掉 ⌘C、并发触发互相覆盖；新增 3 个浮层几何测试，XCTest 共 27 个。
 - 取词增加 `AXSelectedTextMarkerRange` 兜底；无 `AXSelectedTextRange` 时用选中文本反查全文范围恢复上下文；新增 3 个反查测试，XCTest 共 30 个。
+- OCR 版面增加段落拼接：英文/中文续行合并，列表项和明显行距保留换行；新增 3 个版面测试，XCTest 共 33 个。
 - 细节见 `docs/open-source-capture-ocr-review.md`；未改变 v0.4.0 Release。
 
 ## 0.4.0 — 2026-11-26
