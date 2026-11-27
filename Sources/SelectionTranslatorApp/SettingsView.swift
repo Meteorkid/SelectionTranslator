@@ -53,7 +53,9 @@ struct SettingsView: View {
     var onOpenPrivacy: () -> Void
     var onShowOnboarding: () -> Void
 
-    @State private var apiKey: String = KeychainStore.read(key: "apiKey") ?? ""
+    @State private var apiKey = ""
+    @State private var apiKeyLoaded = false
+    @State private var apiKeyError: String?
     @State private var showKey = false
     @State private var selectedTab: SettingsTab = {
         if let raw = ProcessInfo.processInfo.environment["ST_SETTINGS_TAB"],
@@ -117,18 +119,29 @@ struct SettingsView: View {
         .stAppearance(store.settings.appearance)
         .animation(.easeInOut(duration: 0.22), value: store.settings.appearance)
         .onChange(of: apiKey) { _, newValue in
+            // A failed Keychain read must not be mistaken for an empty key,
+            // but typing a non-empty replacement is an explicit choice and
+            // resumes persistence.
+            guard apiKeyLoaded || !newValue.isEmpty else { return }
+            apiKeyLoaded = true
+            apiKeyError = nil
             // Avoid deleting and re-adding the Keychain item on every
             // keystroke while the user is typing a key.
             apiKeySaveTask?.cancel()
             apiKeySaveTask = Task { @MainActor in
                 try? await Task.sleep(nanoseconds: 350_000_000)
                 guard !Task.isCancelled else { return }
-                KeychainStore.save(newValue, key: "apiKey")
+                if !KeychainStore.save(newValue, key: "apiKey") {
+                    self.apiKeyError = "无法写入钥匙串，API Key 没有保存。"
+                }
             }
         }
         .onDisappear {
             apiKeySaveTask?.cancel()
-            KeychainStore.save(apiKey, key: "apiKey")
+            guard apiKeyLoaded else { return }
+            if !KeychainStore.save(apiKey, key: "apiKey") {
+                apiKeyError = "无法写入钥匙串，API Key 没有保存。"
+            }
             documentSaveTask?.cancel()
             if documentContextLoaded {
                 DocumentContextRepository.write(documentContext, accountID: accountStore.activeID)
@@ -140,6 +153,7 @@ struct SettingsView: View {
             refreshOllama()
             refreshProfileStats()
             loadDocumentContext()
+            loadAPIKey()
         }
         .onChange(of: accountStore.activeID) { _, _ in
             documentSaveTask?.cancel()
@@ -460,26 +474,36 @@ struct SettingsView: View {
                 }
 
                 fieldRow("API Key") {
-                    HStack(spacing: 8) {
-                        Group {
-                            if showKey {
-                                TextField("本地模型可留空", text: $apiKey)
-                            } else {
-                                SecureField("本地模型可留空", text: $apiKey)
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 8) {
+                            Group {
+                                if showKey {
+                                    TextField("本地模型可留空", text: $apiKey)
+                                } else {
+                                    SecureField("本地模型可留空", text: $apiKey)
+                                }
                             }
-                        }
-                        .textFieldStyle(.roundedBorder)
+                            .textFieldStyle(.roundedBorder)
 
-                        Button {
-                            showKey.toggle()
-                        } label: {
-                            Image(systemName: showKey ? "eye.slash" : "eye")
-                                .frame(width: 18)
+                            Button {
+                                showKey.toggle()
+                            } label: {
+                                Image(systemName: showKey ? "eye.slash" : "eye")
+                                    .frame(width: 18)
+                            }
+                            .buttonStyle(.borderless)
+                            .help(showKey ? "隐藏 API Key" : "显示 API Key")
                         }
-                        .buttonStyle(.borderless)
-                        .help(showKey ? "隐藏 API Key" : "显示 API Key")
+                        .frame(width: 300)
+
+                        if let apiKeyError {
+                            Text(apiKeyError)
+                                .font(.caption)
+                                .foregroundStyle(.red)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .frame(width: 300, alignment: .leading)
+                        }
                     }
-                    .frame(width: 300)
                 }
 
                 HStack(spacing: 10) {
@@ -1199,6 +1223,25 @@ struct SettingsView: View {
         store.settings.apiBaseURL = preset.baseURL
         store.settings.model = preset.model
         health = nil
+    }
+
+    private func loadAPIKey() {
+        switch KeychainStore.readResult(key: "apiKey") {
+        case .found(let value):
+            apiKeyLoaded = true
+            apiKeyError = nil
+            apiKey = value
+        case .missing:
+            apiKeyLoaded = true
+            apiKeyError = nil
+            apiKey = ""
+        case .failed:
+            // Keep the field editable but do not persist its initial empty
+            // value over the existing secret.
+            apiKeyLoaded = false
+            apiKey = ""
+            apiKeyError = "无法读取钥匙串中的 API Key。重新输入可覆盖保存；关闭设置不会清除原值。"
+        }
     }
 
     private func loadDocumentContext() {
