@@ -27,6 +27,13 @@ enum SelectionCaptureService {
               app.processIdentifier != ProcessInfo.processInfo.processIdentifier else {
             return nil
         }
+        // The clipboard fallback must honor the same sensitive-app blocklist
+        // as the Accessibility path. Otherwise a secure input field that
+        // exposes no AX selection could still leak via a simulated copy.
+        if let bundleID = app.bundleIdentifier,
+           blockedBundleIDs.contains(bundleID) {
+            return nil
+        }
 
         let appName = app.localizedName ?? "Unknown"
         let bundleID = app.bundleIdentifier

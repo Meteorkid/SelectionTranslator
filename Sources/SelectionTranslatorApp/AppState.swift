@@ -170,6 +170,10 @@ final class AppState: ObservableObject {
                 .readObjects(forClasses: [NSImage.self], options: nil)?
                 .first as? NSImage
             if let pastedImage {
+                guard settingsStore.settings.enableOCR else {
+                    panelController.showError("截图 OCR 已在设置里关闭，剪贴板图片不会发送到识别引擎。")
+                    return
+                }
                 captureTask = Task { [weak self] in
                     guard let self else { return }
                     do {
