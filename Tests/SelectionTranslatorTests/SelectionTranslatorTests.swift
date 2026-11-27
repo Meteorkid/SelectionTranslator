@@ -153,6 +153,14 @@ final class AppURLParserTests: XCTestCase {
 
     func testUnknownAndWrongScheme() {
         XCTAssertEqual(AppURLParser.parse(URL(string: "selectiontranslator://nope")!), .unknown("nope"))
+
+        let longApp = String(repeating: "A", count: 500)
+        let longURL = URL(string: "selectiontranslator://translate?text=hello&app=\(longApp)&title=\(longApp)")!
+        guard case .translate(let request) = AppURLParser.parse(longURL) else {
+            return XCTFail("expected translate command")
+        }
+        XCTAssertEqual(request.appName.count, 80)
+        XCTAssertEqual(request.title?.count, 200)
         XCTAssertNil(AppURLParser.parse(URL(string: "https://example.com")!))
     }
 }

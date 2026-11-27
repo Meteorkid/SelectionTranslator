@@ -74,8 +74,8 @@ enum AppURLParser {
                 BrowserTranslationRequest(
                     text: String((items["text"] ?? "").trimmingCharacters(in: .whitespacesAndNewlines).prefix(8_000)),
                     context: String((items["context"] ?? "").prefix(3_000)),
-                    appName: items["app"] ?? "浏览器",
-                    title: items["title"].flatMap { $0.isEmpty ? nil : $0 },
+                    appName: displayLabel(items["app"], fallback: "浏览器", maxLength: 80) ?? "浏览器",
+                    title: displayLabel(items["title"], fallback: nil, maxLength: 200),
                     documentContext: String((items["document"] ?? "").prefix(6_000))
                 )
             )
@@ -94,5 +94,17 @@ enum AppURLParser {
         default:
             return .unknown(action)
         }
+    }
+
+    private static func displayLabel(
+        _ raw: String?,
+        fallback: String?,
+        maxLength: Int
+    ) -> String? {
+        guard let raw else { return fallback }
+        let value = raw
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .prefix(maxLength)
+        return value.isEmpty ? fallback : String(value)
     }
 }
