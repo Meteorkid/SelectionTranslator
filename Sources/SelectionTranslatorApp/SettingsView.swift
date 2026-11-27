@@ -1339,6 +1339,13 @@ struct SettingsView: View {
         let settings = store.settings
         let accountID = accountStore.activeID
         Task {
+            guard await HistoryStore.shared.encryptionAvailable else {
+                await MainActor.run {
+                    ankiExportMessage = HistoryCipherError.keyUnavailable.localizedDescription
+                    isExportingAnki = false
+                }
+                return
+            }
             do {
                 let favorites = try await HistoryStore.shared.records(
                     accountID: accountID,

@@ -11,9 +11,13 @@ final class LibraryViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var noticeMessage: String?
     private var currentAccountID: UUID?
+    private var currentFavoritesOnly = false
+    private var currentSearch = ""
     private var reloadGeneration = 0
 
     func reload(accountID: UUID, favoritesOnly: Bool, search: String) async {
+        currentFavoritesOnly = favoritesOnly
+        currentSearch = search
         reloadGeneration += 1
         let generation = reloadGeneration
         currentAccountID = accountID
@@ -48,7 +52,11 @@ final class LibraryViewModel: ObservableObject {
                 records[index].isFavorite.toggle()
             }
             if let accountID {
-                stats = try await HistoryStore.shared.stats(accountID: accountID)
+                await reload(
+                    accountID: accountID,
+                    favoritesOnly: currentFavoritesOnly,
+                    search: currentSearch
+                )
             }
         } catch {
             errorMessage = error.localizedDescription
@@ -62,7 +70,11 @@ final class LibraryViewModel: ObservableObject {
             guard currentAccountID == accountID else { return }
             records.removeAll { $0.id == record.id }
             if let accountID {
-                stats = try await HistoryStore.shared.stats(accountID: accountID)
+                await reload(
+                    accountID: accountID,
+                    favoritesOnly: currentFavoritesOnly,
+                    search: currentSearch
+                )
             }
         } catch {
             errorMessage = error.localizedDescription

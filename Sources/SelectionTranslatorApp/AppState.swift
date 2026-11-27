@@ -127,6 +127,7 @@ final class AppState: ObservableObject {
                 maxContextLength: self.settingsStore.settings.contextLength,
                 useClipboardFallback: self.settingsStore.settings.useClipboardFallback
             ) else {
+                guard !Task.isCancelled else { return }
                 self.panelController.showError(
                     "没有取到选中文字。请在 Safari、Preview、Word、VS Code 等应用里选中一段英文，再按 \(self.settingsStore.settings.hotkeys.selection.display)。"
                 )
