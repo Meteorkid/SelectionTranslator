@@ -397,8 +397,12 @@ actor HistoryStore {
 
             let needsPlaintextEncryption = [source, translation, context, appName, bundleID]
                 .contains { !$0.isEmpty && !HistoryCipher.isEncrypted($0) }
-            if !cipher.isAvailable, needsPlaintextEncryption {
+            let needsCharacterCount = HistoryCipher.isEncrypted(source) && existingCount == 0
+            if !cipher.isAvailable, needsPlaintextEncryption || needsCharacterCount {
                 complete = false
+                // Do not rewrite pending rows on every history operation
+                // while the key is unavailable; retry once it is readable.
+                continue
             }
 
             let encryptedSource = try encryptedIfNeeded(source, cipher: cipher)
