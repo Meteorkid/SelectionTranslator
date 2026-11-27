@@ -188,6 +188,8 @@ final class AppState: ObservableObject {
                                 source: .ocr
                             )
                         )
+                    } catch is CancellationError {
+                        return
                     } catch {
                         self.panelController.showError("剪贴板图片识别失败：\(error.localizedDescription)")
                     }
@@ -239,7 +241,7 @@ final class AppState: ObservableObject {
                         source: .ocr
                     )
                 )
-            } catch OCRServiceError.cancelled {
+            } catch OCRServiceError.cancelled, is CancellationError {
                 return
             } catch {
                 self.panelController.showError("OCR 失败：\(error.localizedDescription)")
@@ -270,7 +272,7 @@ final class AppState: ObservableObject {
                 NSPasteboard.general.setString(trimmed, forType: .string)
                 self.log.info("silent OCR copied \(trimmed.count, privacy: .public) chars")
                 NSSound(named: "Glass")?.play()
-            } catch OCRServiceError.cancelled {
+            } catch OCRServiceError.cancelled, is CancellationError {
                 return
             } catch {
                 self.panelController.showError("OCR 失败：\(error.localizedDescription)")
