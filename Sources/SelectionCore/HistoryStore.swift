@@ -425,10 +425,17 @@ actor HistoryStore {
 
     private func requireCipher() throws -> HistoryCipher {
         let loaded = currentCipher()
-        guard loaded.isAvailable else {
+        if loaded.isAvailable { return loaded }
+
+        // The user can grant Keychain access after the app has launched. A
+        // cached unavailable cipher must not disable history persistence for
+        // the rest of the process; retry when a write actually needs a key.
+        let retried = HistoryCipher(keyOverride: encryptionKeyOverride)
+        cipher = retried
+        guard retried.isAvailable else {
             throw HistoryCipherError.keyUnavailable
         }
-        return loaded
+        return retried
     }
 
     private func prepare(_ sql: String, in db: OpaquePointer) throws -> OpaquePointer {
