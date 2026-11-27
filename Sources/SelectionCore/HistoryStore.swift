@@ -25,6 +25,7 @@ actor HistoryStore {
     private let databaseURL: URL
     private let encryptionKeyOverride: Data?
     private var cipher: HistoryCipher?
+    private var lastCipherFailureAt: Date?
 
     init(databaseURL: URL? = nil, encryptionKey: Data? = nil) {
         let resolvedURL: URL
@@ -433,11 +434,19 @@ actor HistoryStore {
         // The user can grant Keychain access after the app has launched. A
         // cached unavailable cipher must not disable history persistence for
         // the rest of the process; retry when a write actually needs a key.
+        // A denied Keychain read must not make every history save re-prompt
+        // the user. Back off briefly, then retry so a later grant recovers.
+        if let lastCipherFailureAt,
+           Date().timeIntervalSince(lastCipherFailureAt) < 5 {
+            throw HistoryCipherError.keyUnavailable
+        }
         let retried = HistoryCipher(keyOverride: encryptionKeyOverride)
         cipher = retried
         guard retried.isAvailable else {
+            lastCipherFailureAt = Date()
             throw HistoryCipherError.keyUnavailable
         }
+        lastCipherFailureAt = nil
         return retried
     }
 
