@@ -618,6 +618,15 @@ struct SettingsView: View {
                             .frame(width: 28, alignment: .trailing)
                     }
                 }
+
+                LabeledContent("最大输出") {
+                    Stepper(
+                        "\(store.settings.maxOutputTokens) tokens",
+                        value: $store.settings.maxOutputTokens,
+                        in: 256...4_096,
+                        step: 256
+                    )
+                }
             } header: {
                 STSectionHeader(title: "翻译行为", systemImage: "slider.horizontal.3")
             }
