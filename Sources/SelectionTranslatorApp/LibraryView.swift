@@ -40,12 +40,14 @@ final class LibraryViewModel: ObservableObject {
     }
 
     func toggleFavorite(_ record: QueryRecord) async {
+        let accountID = currentAccountID
         do {
             try await HistoryStore.shared.setFavorite(id: record.id, isFavorite: !record.isFavorite)
+            guard currentAccountID == accountID else { return }
             if let index = records.firstIndex(where: { $0.id == record.id }) {
                 records[index].isFavorite.toggle()
             }
-            if let accountID = currentAccountID ?? records.first?.accountID {
+            if let accountID {
                 stats = try await HistoryStore.shared.stats(accountID: accountID)
             }
         } catch {
@@ -54,10 +56,12 @@ final class LibraryViewModel: ObservableObject {
     }
 
     func delete(_ record: QueryRecord) async {
+        let accountID = currentAccountID
         do {
             try await HistoryStore.shared.delete(id: record.id)
+            guard currentAccountID == accountID else { return }
             records.removeAll { $0.id == record.id }
-            if let accountID = currentAccountID ?? records.first?.accountID {
+            if let accountID {
                 stats = try await HistoryStore.shared.stats(accountID: accountID)
             }
         } catch {
