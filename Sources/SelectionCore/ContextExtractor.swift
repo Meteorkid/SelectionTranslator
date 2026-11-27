@@ -14,7 +14,10 @@ enum ContextExtractor {
         let start = max(0, range.location - half)
         let length = maxLength + max(0, range.length)
         if let chunk = AX.string(for: CFRange(location: start, length: length), in: element) {
-            return chunk
+            // The fallback range includes the selection length; cap the
+            // returned context so the user's context setting remains an
+            // upper bound even when the app exposes no full text value.
+            return String(chunk.prefix(maxLength))
         }
         return ""
     }

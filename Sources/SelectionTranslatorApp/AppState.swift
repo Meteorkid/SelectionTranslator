@@ -468,9 +468,14 @@ final class AppState: ObservableObject {
         // prompt already caps selection length, so cap the capture at the same
         // product boundary before it reaches history or the cache.
         let selection = String(capture.selectedText.prefix(8_000))
-        let boundedCapture = selection == capture.selectedText
-            ? capture
-            : capture.withSelectedText(selection)
+        let context = DocumentContextTrimmer.trim(
+            capture.context,
+            maxCharacters: max(0, settings.contextLength),
+            selection: selection
+        )
+        let boundedCapture = capture
+            .withSelectedText(selection)
+            .withContext(context)
 
         let localDocument = settings.useDocumentContext
             ? DocumentContextRepository.read(accountID: accountStore.activeID)
