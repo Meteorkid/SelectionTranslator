@@ -305,13 +305,16 @@ private struct InputSystemTranslationBridge: View {
                     : nil
             }
             .translationTask(configuration) { session in
+                let token = await MainActor.run { model.systemToken }
                 let text = await MainActor.run { model.sourceText }
                 do {
                     let response = try await session.translate(text)
-                    await MainActor.run { model.applySystemTranslation(response.targetText) }
+                    await MainActor.run {
+                        model.applySystemTranslation(response.targetText, token: token)
+                    }
                 } catch {
                     await MainActor.run {
-                        model.applySystemTranslationError("系统翻译未完成（可能尚未下载语言包，可在系统设置 → 通用 → 语言与地区 → 翻译中下载）：\(error.localizedDescription)")
+                        model.applySystemTranslationError("系统翻译未完成（可能尚未下载语言包，可在系统设置 → 通用 → 语言与地区 → 翻译中下载）：\(error.localizedDescription)", token: token)
                     }
                 }
             }

@@ -26,6 +26,11 @@ final class TranslationViewModel: ObservableObject {
 
     private var task: Task<Void, Never>?
     private var explainTask: Task<Void, Never>?
+    /// Invalidates callbacks from a previous translation after retry/cancel.
+    private var runGeneration = 0
+    /// Identifies the current system-translation request so a late response
+    /// from an earlier request cannot overwrite a newer one.
+    private(set) var systemToken = UUID()
     private var capture: CaptureResult?
     private var settings: AppSettings?
     private var apiKey = ""
@@ -37,6 +42,8 @@ final class TranslationViewModel: ObservableObject {
         task = nil
         explainTask?.cancel()
         explainTask = nil
+        runGeneration += 1
+        systemToken = UUID()
 
         self.capture = capture
         self.settings = settings
@@ -123,7 +130,7 @@ final class TranslationViewModel: ObservableObject {
         case .system:
             engineLabel = "系统翻译"
             isStreaming = true
-            needsSystemTranslation = true
+            requestSystemTranslation()
 
         case .unavailable(let message):
             engineLabel = "无可用引擎"
@@ -135,20 +142,25 @@ final class TranslationViewModel: ObservableObject {
     private func startModel(request: TranslationRequest) {
         engineLabel = settings?.isLocalProvider == true ? "本地模型" : "在线模型"
         isStreaming = true
+        let generation = runGeneration
 
         task = Task { [weak self] in
-            guard let self else { return }
+            guard let self, self.runGeneration == generation else { return }
             do {
                 let stream = OpenAICompatibleProvider().stream(request)
                 for try await delta in stream {
                     try Task.checkCancellation()
+                    guard self.runGeneration == generation else { return }
                     self.translation += delta
                 }
+                guard self.runGeneration == generation else { return }
                 self.isStreaming = false
                 self.cacheAndPersist()
             } catch is CancellationError {
+                guard self.runGeneration == generation else { return }
                 self.isStreaming = false
             } catch {
+                guard self.runGeneration == generation else { return }
                 self.isStreaming = false
                 self.startSystemFallback(error: error)
             }
@@ -163,14 +175,20 @@ final class TranslationViewModel: ObservableObject {
         }
         engineLabel = "系统翻译"
         errorMessage = nil
-        isStreaming = true
-        needsSystemTranslation = true
+        requestSystemTranslation()
     }
 
-    func applySystemTranslation(_ text: String) {
+    private func requestSystemTranslation() {
+        systemToken = UUID()
+        needsSystemTranslation = true
+        isStreaming = true
+    }
+
+    func applySystemTranslation(_ text: String, token: UUID) {
+        guard token == systemToken, needsSystemTranslation else { return }
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
-            applySystemTranslationError("系统翻译没有返回内容。")
+            applySystemTranslationError("系统翻译没有返回内容。", token: token)
             return
         }
         translation = trimmed
@@ -180,7 +198,8 @@ final class TranslationViewModel: ObservableObject {
         cacheAndPersist()
     }
 
-    func applySystemTranslationError(_ message: String) {
+    func applySystemTranslationError(_ message: String, token: UUID) {
+        guard token == systemToken, needsSystemTranslation else { return }
         errorMessage = message
         isStreaming = false
         needsSystemTranslation = false
@@ -189,15 +208,18 @@ final class TranslationViewModel: ObservableObject {
     func toggleFavorite() {
         guard let recordID else { return }
         let newValue = !isFavorite
+        let generation = runGeneration
         Task { [weak self] in
             do {
                 try await HistoryStore.shared.setFavorite(id: recordID, isFavorite: newValue)
                 await MainActor.run {
-                    self?.isFavorite = newValue
+                    guard let self, self.runGeneration == generation else { return }
+                    self.isFavorite = newValue
                 }
             } catch {
                 await MainActor.run {
-                    self?.errorMessage = error.localizedDescription
+                    guard let self, self.runGeneration == generation else { return }
+                    self.errorMessage = error.localizedDescription
                 }
             }
         }
@@ -215,6 +237,7 @@ final class TranslationViewModel: ObservableObject {
         contextExplanation = ""
         isExplaining = true
         engineLabel = "离线词库 + 语境"
+        let generation = runGeneration
 
         let request = TranslationRequest(
             text: capture.selectedText,
@@ -231,13 +254,15 @@ final class TranslationViewModel: ObservableObject {
         )
 
         explainTask = Task { [weak self] in
-            guard let self else { return }
+            guard let self, self.runGeneration == generation else { return }
             do {
                 let stream = OpenAICompatibleProvider().stream(request)
                 for try await delta in stream {
                     try Task.checkCancellation()
+                    guard self.runGeneration == generation else { return }
                     self.contextExplanation += delta
                 }
+                guard self.runGeneration == generation else { return }
                 self.isExplaining = false
                 let explanation = self.contextExplanation.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !explanation.isEmpty else {
@@ -254,9 +279,11 @@ final class TranslationViewModel: ObservableObject {
                     )
                 }
             } catch is CancellationError {
+                guard self.runGeneration == generation else { return }
                 self.isExplaining = false
                 self.engineLabel = "离线词库"
             } catch {
+                guard self.runGeneration == generation else { return }
                 self.isExplaining = false
                 self.engineLabel = "离线词库"
                 self.explanationError = "语境解释失败：\(error.localizedDescription)"
@@ -277,6 +304,8 @@ final class TranslationViewModel: ObservableObject {
     }
 
     func cancel() {
+        runGeneration += 1
+        systemToken = UUID()
         task?.cancel()
         task = nil
         explainTask?.cancel()
@@ -307,6 +336,7 @@ final class TranslationViewModel: ObservableObject {
         }
         didPersist = true
 
+        let generation = runGeneration
         let record = QueryRecord(
             accountID: accountID,
             sourceText: capture.selectedText,
@@ -323,12 +353,14 @@ final class TranslationViewModel: ObservableObject {
             do {
                 let insertedID = try await HistoryStore.shared.insert(record)
                 await MainActor.run {
-                    self?.recordID = insertedID
-                    self?.canFavorite = true
+                    guard let self, self.runGeneration == generation else { return }
+                    self.recordID = insertedID
+                    self.canFavorite = true
                 }
             } catch {
                 await MainActor.run {
-                    self?.errorMessage = "保存历史失败：\(error.localizedDescription)"
+                    guard let self, self.runGeneration == generation else { return }
+                    self.errorMessage = "保存历史失败：\(error.localizedDescription)"
                 }
             }
         }
