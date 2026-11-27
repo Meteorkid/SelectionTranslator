@@ -165,7 +165,8 @@ struct SettingsView: View {
         .alert("删除当前本地账户？", isPresented: $showingDeleteAccount) {
             Button("删除", role: .destructive) {
                 accountStore.deleteProfile(accountStore.activeID)
-                documentContext = DocumentContextRepository.read(accountID: accountStore.activeID)
+                documentSaveTask?.cancel()
+                loadDocumentContext()
             }
             Button("取消", role: .cancel) {}
         } message: {
@@ -1227,6 +1228,7 @@ struct SettingsView: View {
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
         panel.canChooseFiles = true
+        let accountID = accountStore.activeID
         panel.begin { response in
             guard response == .OK, let url = panel.url else { return }
             self.isImportingPDF = true
@@ -1239,8 +1241,13 @@ struct SettingsView: View {
                             maxCharacters: DocumentContextRepository.maxStoredCharacters
                         )
                     }.value
+                    guard self.accountStore.activeID == accountID else {
+                        self.isImportingPDF = false
+                        self.pdfImportMessage = "账户已切换，已取消这次 PDF 导入。"
+                        return
+                    }
                     self.documentContext = text
-                    DocumentContextRepository.write(text, accountID: self.accountStore.activeID)
+                    DocumentContextRepository.write(text, accountID: accountID)
                     self.pdfImportMessage = "已导入 \(text.count) 字符。翻译时只会发送与选区相关的一段。"
                 } catch {
                     self.pdfImportMessage = "PDF 导入失败：\(error.localizedDescription)"
