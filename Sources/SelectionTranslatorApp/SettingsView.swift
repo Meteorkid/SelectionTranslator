@@ -1342,7 +1342,10 @@ struct SettingsView: View {
         let accountID = accountStore.activeID
         Task {
             let stats = (try? await HistoryStore.shared.stats(accountID: accountID)) ?? HistoryStats()
-            await MainActor.run { profileStats = stats }
+            await MainActor.run {
+                guard accountStore.activeID == accountID else { return }
+                profileStats = stats
+            }
         }
     }
 }
