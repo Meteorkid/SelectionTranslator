@@ -111,7 +111,8 @@ struct HotKeyBinding: Codable, Equatable, Sendable {
         var value: UInt32 = 0
         if command { value |= UInt32(0x0100) }
         if shift { value |= UInt32(0x0200) }
-        if control { value |= UInt32(0x0400) }
+        // Carbon controlKey is bit 12 (0x1000); 0x0400 is alphaLock.
+        if control { value |= UInt32(0x1000) }
         if option { value |= UInt32(0x0800) }
         return value
     }

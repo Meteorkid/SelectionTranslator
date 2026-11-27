@@ -342,4 +342,15 @@ final class AdvancedFeatureTests: XCTestCase {
         XCTAssertFalse(EndpointURL.isPermittedTransport("http://api.deepseek.com/v1"))
     }
 
+    func testHotKeyCarbonModifiersUseControlBit() {
+        let binding = HotKeyBinding(
+            key: .a,
+            command: true,
+            option: true,
+            shift: true,
+            control: true
+        )
+        XCTAssertEqual(binding.carbonModifiers, 0x0100 | 0x0200 | 0x0800 | 0x1000)
+    }
+
 }
