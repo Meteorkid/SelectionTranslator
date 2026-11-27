@@ -18,8 +18,18 @@ enum KeychainStore {
             kSecAttrAccount as String: key
         ]
 
-        SecItemDelete(query as CFDictionary)
-        guard !value.isEmpty else { return true }
+        if value.isEmpty {
+            // Empty means "remove this secret"; do not leave a stale item.
+            let deleteStatus = SecItemDelete(query as CFDictionary)
+            return deleteStatus == errSecSuccess || deleteStatus == errSecItemNotFound
+        }
+
+        // Update in place first. Deleting before an add is risky: a failed
+        // add would lose the previous key that is still needed by the app.
+        let update: [String: Any] = [kSecValueData as String: Data(value.utf8)]
+        let updateStatus = SecItemUpdate(query as CFDictionary, update as CFDictionary)
+        if updateStatus == errSecSuccess { return true }
+        if updateStatus != errSecItemNotFound { return false }
 
         var attributes = query
         attributes[kSecValueData as String] = Data(value.utf8)

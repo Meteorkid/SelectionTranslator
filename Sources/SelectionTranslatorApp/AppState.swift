@@ -22,6 +22,7 @@ final class AppState: ObservableObject {
     private var captureTask: Task<Void, Never>?
     private var hasStartedUpdater = false
     private var settingsSink: AnyCancellable?
+    private var activationObserver: NSObjectProtocol?
     private var hasShownPermissionHelp = false
     private var externalURLGate = ExternalURLGate()
 
@@ -82,6 +83,20 @@ final class AppState: ObservableObject {
                 self.hotKeyManager.register(settings.hotkeys)
                 self.applyMouseSelectionSettings(settings)
             }
+
+        // A user may grant Accessibility in System Settings while the app is
+        // running. Re-apply the monitor when the app becomes active so mouse
+        // selection starts without requiring a relaunch or a settings toggle.
+        activationObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                guard let self else { return }
+                self.applyMouseSelectionSettings(self.settingsStore.settings)
+            }
+        }
     }
 
     private func applyMouseSelectionSettings(_ settings: AppSettings) {
@@ -296,6 +311,7 @@ final class AppState: ObservableObject {
             onComplete: { [weak self] in
                 guard let self else { return }
                 OnboardingState.markCompleted()
+                self.applyMouseSelectionSettings(self.settingsStore.settings)
                 self.startUpdater()
             }
         )
