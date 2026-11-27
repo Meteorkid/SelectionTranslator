@@ -317,6 +317,34 @@ final class TranslationViewModel: ObservableObject {
         isExplaining = false
     }
 
+    /// Clears the current result when the active local account changes. The
+    /// old record belongs to the old account and must not be favorited from a
+    /// window that now displays a different account.
+    func reset() {
+        cancel()
+        capture = nil
+        settings = nil
+        apiKey = ""
+        accountID = nil
+        didPersist = false
+        sourceText = ""
+        contextText = ""
+        documentContextText = ""
+        appName = ""
+        sourceKind = ""
+        sourceLabel = ""
+        translation = ""
+        errorMessage = nil
+        engineLabel = ""
+        recordID = nil
+        isFavorite = false
+        canFavorite = false
+        canExplainInContext = false
+        contextExplanation = ""
+        isExplaining = false
+        explanationError = nil
+    }
+
     private func cacheAndPersist() {
         if let capture, let settings {
             TranslationPipeline.storeInCache(

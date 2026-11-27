@@ -49,6 +49,9 @@ struct InputTranslationView: View {
                 InputSystemTranslationBridge(model: model)
             }
         }
+        .onChange(of: accountStore.activeID) { _, _ in
+            model.reset()
+        }
     }
 
     private var inputArea: some View {
