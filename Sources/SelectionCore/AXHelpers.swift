@@ -145,7 +145,12 @@ enum AX {
     }
 
     static func selectedText(of element: AXUIElement) -> String? {
-        if let text: String = copy(element, kAXSelectedTextAttribute), !text.isEmpty {
+        if let text: String = copy(element, kAXSelectedTextAttribute),
+           !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return text
+        }
+        if let text = selectedTextMarkerText(of: element),
+           !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return text
         }
         if let range = selectedRange(of: element), range.length > 0 {
@@ -154,13 +159,73 @@ enum AX {
         return nil
     }
 
-    static func selectedRange(of element: AXUIElement) -> CFRange? {
-        guard let value: AXValue = copy(element, kAXSelectedTextRangeAttribute, as: AXValue.self) else {
+    static func selectedRange(
+        of element: AXUIElement,
+        matching selectedText: String? = nil
+    ) -> CFRange? {
+        if let range = selectedRangeFromAttribute(of: element) {
+            return range
+        }
+        guard let selectedText,
+              let fullText = fullText(of: element),
+              let range = TextRangeResolver.firstRange(
+                  of: selectedText,
+                  in: fullText
+              ) else {
+            return nil
+        }
+        return CFRange(location: range.location, length: range.length)
+    }
+
+    private static func selectedRangeFromAttribute(of element: AXUIElement) -> CFRange? {
+        guard let value: AXValue = copy(
+            element,
+            kAXSelectedTextRangeAttribute,
+            as: AXValue.self
+        ) else {
             return nil
         }
         var range = CFRange()
         guard AXValueGetValue(value, .cfRange, &range) else { return nil }
         return range
+    }
+
+    /// WebKit/Chromium apps may expose only `AXSelectedTextMarkerRange`.
+    private static func selectedTextMarkerText(of element: AXUIElement) -> String? {
+        AXUIElementSetMessagingTimeout(element, messagingTimeout)
+        var markerRange: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(
+            element,
+            "AXSelectedTextMarkerRange" as CFString,
+            &markerRange
+        ) == .success, let markerRange else {
+            return nil
+        }
+        return string(for: markerRange, in: element)
+    }
+
+    private static func string(for markerRange: CFTypeRef, in element: AXUIElement) -> String? {
+        for attribute in [
+            "AXStringForTextMarkerRange",
+            "AXAttributedStringForTextMarkerRange"
+        ] {
+            var value: CFTypeRef?
+            guard AXUIElementCopyParameterizedAttributeValue(
+                element,
+                attribute as CFString,
+                markerRange,
+                &value
+            ) == .success, let value else {
+                continue
+            }
+            if let text = value as? String, !text.isEmpty {
+                return text
+            }
+            if let text = value as? NSAttributedString, text.length > 0 {
+                return text.string
+            }
+        }
+        return nil
     }
 
     static func string(for range: CFRange, in element: AXUIElement) -> String? {

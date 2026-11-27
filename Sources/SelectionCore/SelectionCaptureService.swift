@@ -89,7 +89,7 @@ enum SelectionCaptureService {
             return nil
         }
 
-        let range = AX.selectedRange(of: element)
+        let range = AX.selectedRange(of: element, matching: selected)
         let context = range.map {
             ContextExtractor.context(around: $0, in: element, maxLength: maxContextLength)
         } ?? ""

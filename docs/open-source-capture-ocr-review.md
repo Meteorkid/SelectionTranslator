@@ -24,7 +24,7 @@
 | [Blurt](https://github.com/AGIHunt/blurt) | Swift/Rust / MIT | 屏幕文字、OCR 测试样例 | 产品中心是语音输入/记录，不是划词翻译 |
 | [VocabPocket](https://github.com/alanzeng423/VocabPocket) | Swift / MIT | OCR 原图、增强、反色多 pass 和结果评分 | 功能面更宽，翻译服务/生词本不是本次目标 |
 | [MoePeek](https://github.com/cosZone/MoePeek) | Swift / AGPL-3.0 | AX → AppleScript → 剪贴板三级兜底、鼠标点击点校验、截图浮层保护、剪贴板访问门 | AGPL，只参考行为，不复制源码 |
-| [invisible-translator](https://github.com/on1ymyse1f/invisible-translator) | Swift / MIT | `AXSelectedTextMarkerRange` 读取 WebKit/Chromium 选区 | 产品侧重点在屏幕字幕与本地翻译 |
+| [invisible-translator](https://github.com/on1ymyse1f/invisible-translator) | Swift / MIT | `AXSelectedTextMarkerRange` 读取 WebKit/Chromium 选区，选区文本反查范围 | 产品侧重点在屏幕字幕与本地翻译 |
 
 Cida 的关键源码位置：
 
@@ -79,6 +79,16 @@ Chrome 的 `AXValue` 是空的，`AXStringForRange` 也不支持；但 `AXTextMa
 
 这修复了此前 Chrome 里只有选中文字、没有上下文的退化；浏览器扩展路径本来就会传 `context/document`，现在原生 `⌥D` 路径也一致。
 
+### 4.1 只有 marker 的选区
+
+有些 WebKit/Chromium 应用不返回 `AXSelectedText`，只暴露 `AXSelectedTextMarkerRange`。`AX.selectedText` 现在增加第二个分支：
+
+- 先读 `kAXSelectedTextAttribute`；
+- 为空时读 `AXSelectedTextMarkerRange`，再用 `AXStringForTextMarkerRange` / `AXAttributedStringForTextMarkerRange` 取选中文字；
+- 如果连 `AXSelectedTextRange` 也没有，就把选中文字在全文 marker 文本里反查 UTF-16 range，再截取上下文。
+
+反查使用第一次出现的位置，适合普通段落；同一页面出现多次完全相同句子时，上下文可能落在第一处，边界见文末。
+
 ### 5. OCR 版面重建
 
 `OCRTextLayout` 取代原来的“每个 observation 一行”：
@@ -105,12 +115,13 @@ Chrome 的 `AXValue` 是空的，`AXStringForRange` 也不支持；但 `AXTextMa
 ## 验证
 
 - `./scripts/build.sh`：**BUILD SUCCEEDED**
-- `xcodebuild test ...`：**Executed 27 tests, with 0 failures**
-- Chrome 本地页面：`selection-probe` 读到 214 字符选区 + 339 字符上下文
+- `xcodebuild test ...`：**Executed 30 tests, with 0 failures**
+- Chrome 本地页面：`selection-probe` 读到 92 字符选区 + 339 字符上下文（已重新编译当前代码）
 - 剪贴板 probe：目标 Chrome 选区复制成功（214 字符），剪贴板快照 `restored: true`
 - OCR probe：对 0.4.0 设置页、深色背景白字、灰底灰字合成图均能识别；设置页输出 222 字符，同行碎片合并、段落空行符合预期
 - 鼠标点击点校验：`SelectionHitTest` 4 个单元测试覆盖元素内、20pt 容差边缘、远端拒绝和 Cocoa→AX 坐标翻转
 - 截图浮层检测：3 个单元测试覆盖全屏、半屏拒绝和跨显示器；正常桌面 probe 返回 `capturing=false`
+- marker 范围反查：3 个单元测试覆盖命中、未命中、空输入；Chrome 当前代码 probe 仍能带出完整上下文
 - 实机 Chrome 拖选：译图标正常出现，说明点校验没有误杀合法选区
 
 ## 已知边界
@@ -128,3 +139,4 @@ Chrome 的 `AXValue` 是空的，`AXStringForRange` 也不支持；但 `AXTextMa
 3. 把 OCR 版面算法扩展到多栏、表格和竖排。
 4. 再考虑第二个翻译服务；在此之前不引入插件系统。
 5. 鼠标点校验目前只覆盖鼠标路径；键盘快捷键仍按用户显式操作读取选区，不做位置过滤。
+6. marker 反查遇到重复文本时只能取第一处；后续可尝试用选区坐标或 caret 位置消歧。
