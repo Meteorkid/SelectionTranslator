@@ -119,7 +119,7 @@ actor HistoryStore {
     ) throws -> [QueryRecord] {
         guard limit > 0 else { return [] }
         let db = try requireDatabase()
-        let cipher = currentCipher()
+        let cipher = readableCipher()
         let trimmedSearch = search.trimmingCharacters(in: .whitespacesAndNewlines)
         let defaultLimit = Int32(max(0, limit))
         let whereFavorite = favoritesOnly ? "AND is_favorite = 1" : ""
@@ -425,6 +425,24 @@ actor HistoryStore {
         let loaded = HistoryCipher(keyOverride: encryptionKeyOverride)
         cipher = loaded
         return loaded
+    }
+
+    /// Reads should recover after the user grants Keychain access, just as
+    /// writes do, but must not re-prompt on every library refresh.
+    private func readableCipher() -> HistoryCipher {
+        if let cipher, cipher.isAvailable { return cipher }
+        if let lastCipherFailureAt,
+           Date().timeIntervalSince(lastCipherFailureAt) < 5 {
+            return cipher ?? .unavailable
+        }
+        let retried = HistoryCipher(keyOverride: encryptionKeyOverride)
+        cipher = retried
+        if retried.isAvailable {
+            lastCipherFailureAt = nil
+        } else {
+            lastCipherFailureAt = Date()
+        }
+        return retried
     }
 
     private func requireCipher() throws -> HistoryCipher {

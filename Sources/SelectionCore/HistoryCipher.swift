@@ -24,6 +24,12 @@ struct HistoryCipher {
     static let prefix = "enc:v1:"
     private let key: SymmetricKey?
 
+    private init(resolvedKey: SymmetricKey?) {
+        key = resolvedKey
+    }
+
+    static var unavailable: HistoryCipher { HistoryCipher(resolvedKey: nil) }
+
     init(keyOverride: Data? = nil) {
         if let keyOverride, keyOverride.count == 32 {
             key = SymmetricKey(data: keyOverride)
