@@ -107,7 +107,14 @@ enum OCRService {
         guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
             throw OCRServiceError.invalidImage
         }
+        // Vision is synchronous and can take seconds on a large screenshot.
+        // Keep it off the main actor so clipboard OCR never freezes the UI.
+        return try await Task.detached(priority: .userInitiated) {
+            try recognize(cgImage: cgImage)
+        }.value
+    }
 
+    private static func recognize(cgImage: CGImage) throws -> String {
         let originalPass = OCRPassVariant(
             image: cgImage,
             usesLanguageCorrection: true,
