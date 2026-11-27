@@ -173,7 +173,13 @@ struct SettingsView: View {
             documentSaveTask = Task { @MainActor in
                 try? await Task.sleep(nanoseconds: 400_000_000)
                 guard !Task.isCancelled else { return }
-                DocumentContextRepository.write(newValue, accountID: accountID)
+                if DocumentContextRepository.write(newValue, accountID: accountID) {
+                    if documentContextError?.hasPrefix("自动保存失败") == true {
+                        documentContextError = nil
+                    }
+                } else {
+                    documentContextError = "自动保存失败：无法加密或写入文档上下文。原文件未被覆盖。"
+                }
             }
         }
         .alert("删除当前本地账户？", isPresented: $showingDeleteAccount) {
@@ -827,7 +833,11 @@ struct SettingsView: View {
                     .controlSize(.small)
 
                     Button("保存") {
-                        DocumentContextRepository.write(documentContext, accountID: accountStore.activeID)
+                        if DocumentContextRepository.write(documentContext, accountID: accountStore.activeID) {
+                            documentContextError = nil
+                        } else {
+                            documentContextError = "保存失败：无法加密或写入文档上下文。原文件未被覆盖。"
+                        }
                     }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.small)
@@ -1290,8 +1300,11 @@ struct SettingsView: View {
                         return
                     }
                     self.documentContext = text
-                    DocumentContextRepository.write(text, accountID: accountID)
-                    self.pdfImportMessage = "已导入 \(text.count) 字符。翻译时只会发送与选区相关的一段。"
+                    if DocumentContextRepository.write(text, accountID: accountID) {
+                        self.pdfImportMessage = "已导入 \(text.count) 字符。翻译时只会发送与选区相关的一段。"
+                    } else {
+                        self.pdfImportMessage = "PDF 已读取，但无法加密或写入文档上下文；原上下文未被覆盖。"
+                    }
                 } catch {
                     self.pdfImportMessage = "PDF 导入失败：\(error.localizedDescription)"
                 }

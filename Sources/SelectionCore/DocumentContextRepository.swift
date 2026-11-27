@@ -70,17 +70,18 @@ enum DocumentContextRepository {
         return .loaded(String(text.prefix(maxStoredCharacters)))
     }
 
-    static func write(_ text: String, accountID: UUID) {
+    @discardableResult
+    static func write(_ text: String, accountID: UUID) -> Bool {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         let value = String(trimmed.prefix(maxStoredCharacters))
         guard !value.isEmpty else {
             clear(accountID: accountID)
-            return
+            return true
         }
         guard let encrypted = encrypt(value) else {
             // Do not delete an existing context when the Keychain is
             // temporarily unavailable or the user denies access.
-            return
+            return false
         }
         do {
             try encrypted.write(to: fileURL(accountID: accountID), options: .atomic)
@@ -88,9 +89,9 @@ enum DocumentContextRepository {
                 [.posixPermissions: 0o600],
                 ofItemAtPath: fileURL(accountID: accountID).path
             )
+            return true
         } catch {
-            // Keep the repository non-throwing for the settings UI; a failed
-            // write is equivalent to clearing the context for this session.
+            return false
         }
     }
 
