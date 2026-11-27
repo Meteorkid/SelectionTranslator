@@ -163,7 +163,8 @@ enum AX {
         of element: AXUIElement,
         matching selectedText: String? = nil
     ) -> CFRange? {
-        if let range = selectedRangeFromAttribute(of: element) {
+        if let range = selectedRangeFromAttribute(of: element),
+           range.length > 0 {
             return range
         }
         guard let selectedText,
