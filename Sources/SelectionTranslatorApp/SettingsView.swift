@@ -82,6 +82,8 @@ struct SettingsView: View {
     @State private var ankiExportMessage: String?
     @State private var isTestingAnki = false
     @State private var isExportingAnki = false
+    @State private var documentSaveTask: Task<Void, Never>?
+    @State private var apiKeySaveTask: Task<Void, Never>?
     @FocusState private var contextFocused: Bool
     @Environment(\.stAppearance) private var stAppearance
 
@@ -113,7 +115,20 @@ struct SettingsView: View {
         .stAppearance(store.settings.appearance)
         .animation(.easeInOut(duration: 0.22), value: store.settings.appearance)
         .onChange(of: apiKey) { _, newValue in
-            KeychainStore.save(newValue, key: "apiKey")
+            // Avoid deleting and re-adding the Keychain item on every
+            // keystroke while the user is typing a key.
+            apiKeySaveTask?.cancel()
+            apiKeySaveTask = Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 350_000_000)
+                guard !Task.isCancelled else { return }
+                KeychainStore.save(newValue, key: "apiKey")
+            }
+        }
+        .onDisappear {
+            apiKeySaveTask?.cancel()
+            KeychainStore.save(apiKey, key: "apiKey")
+            documentSaveTask?.cancel()
+            DocumentContextRepository.write(documentContext, accountID: accountStore.activeID)
         }
         .onAppear {
             accessibilityTrusted = Permissions.isAccessibilityTrusted(prompt: false)
@@ -123,12 +138,21 @@ struct SettingsView: View {
             documentContext = DocumentContextRepository.read(accountID: accountStore.activeID)
         }
         .onChange(of: accountStore.activeID) { _, _ in
+            documentSaveTask?.cancel()
             refreshProfileStats()
             documentContext = DocumentContextRepository.read(accountID: accountStore.activeID)
             ankiHealth = nil
         }
         .onChange(of: documentContext) { _, newValue in
-            DocumentContextRepository.write(newValue, accountID: accountStore.activeID)
+            // Encrypting and writing the whole article on every keystroke
+            // causes visible input lag. Coalesce edits into one write.
+            documentSaveTask?.cancel()
+            let accountID = accountStore.activeID
+            documentSaveTask = Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 400_000_000)
+                guard !Task.isCancelled else { return }
+                DocumentContextRepository.write(newValue, accountID: accountID)
+            }
         }
         .alert("删除当前本地账户？", isPresented: $showingDeleteAccount) {
             Button("删除", role: .destructive) {
@@ -251,9 +275,7 @@ struct SettingsView: View {
     }
 
     private var versionText: String {
-        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.4.1"
-        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "6"
-        return "v\(version) · b\(build)"
+        AppVersion.display
     }
 
     // MARK: - Account

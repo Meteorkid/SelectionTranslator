@@ -110,6 +110,8 @@ enum TranslationPipeline {
                 .joined(separator: "\u{1F}"),
             settings.model,
             settings.apiBaseURL,
+            String(format: "%.3f", locale: Locale(identifier: "en_US_POSIX"), settings.temperature),
+            String(settings.maxOutputTokens),
             text,
             context,
             documentContext

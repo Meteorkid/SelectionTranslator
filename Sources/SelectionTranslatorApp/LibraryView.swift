@@ -134,6 +134,13 @@ struct LibraryView: View {
         .background(STWindowBackdrop(appearance: settingsStore.settings.appearance))
         .stAppearance(settingsStore.settings.appearance)
         .task(id: reloadKey) {
+            // Typing in the search field should not queue a full decrypt/scan
+            // for every keystroke. The task identity already cancels the
+            // previous wait when the query changes.
+            if !model.search.isEmpty {
+                try? await Task.sleep(nanoseconds: 250_000_000)
+                guard !Task.isCancelled else { return }
+            }
             await model.reload(
                 accountID: accountStore.activeID,
                 favoritesOnly: selectedTab == 1,

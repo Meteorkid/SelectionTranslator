@@ -77,10 +77,21 @@ enum DocumentContextRepository {
         try? FileManager.default.removeItem(at: legacyFileURL(accountID: accountID))
     }
 
+    private static let keyLock = NSLock()
+    private static var cachedKey: SymmetricKey?
+
     private static func encryptionKey() -> SymmetricKey? {
         if let keyOverride {
             return keyOverride.count == 32 ? SymmetricKey(data: keyOverride) : nil
         }
+
+        // The context is encrypted on every settings edit and decrypted on
+        // every translation. Reading the same Keychain item synchronously each
+        // time is unnecessary and can make typing/selection feel sticky.
+        keyLock.lock()
+        defer { keyLock.unlock() }
+        if let cachedKey { return cachedKey }
+
         let account = "documentContextKey"
         switch KeychainStore.readResult(key: account) {
         case .found(let stored):
@@ -89,7 +100,9 @@ enum DocumentContextRepository {
                 // doing so would make existing encrypted contexts unreadable.
                 return nil
             }
-            return SymmetricKey(data: data)
+            let key = SymmetricKey(data: data)
+            cachedKey = key
+            return key
         case .failed:
             return nil
         case .missing:
@@ -98,6 +111,7 @@ enum DocumentContextRepository {
             guard KeychainStore.save(raw.base64EncodedString(), key: account) else {
                 return nil
             }
+            cachedKey = key
             return key
         }
     }
