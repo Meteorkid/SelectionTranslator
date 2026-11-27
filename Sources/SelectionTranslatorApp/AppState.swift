@@ -17,9 +17,10 @@ final class AppState: ObservableObject {
     private let hotKeyManager = HotKeyManager()
     private let mouseSelectionMonitor = MouseSelectionMonitor()
     private let selectionIconController = SelectionIconController()
+    private let onboardingController = OnboardingWindowController()
 
     private var captureTask: Task<Void, Never>?
-    private var updateTask: Task<Void, Never>?
+    private var hasStartedUpdater = false
     private var settingsSink: AnyCancellable?
     private var hasShownPermissionHelp = false
 
@@ -70,12 +71,6 @@ final class AppState: ObservableObject {
                 self.hotKeyManager.register(settings.hotkeys)
                 self.applyMouseSelectionSettings(settings)
             }
-
-        if settingsStore.settings.checkForUpdatesOnLaunch {
-            Task { @MainActor [weak self] in
-                self?.checkForUpdates(manual: false)
-            }
-        }
     }
 
     private func applyMouseSelectionSettings(_ settings: AppSettings) {
@@ -255,52 +250,43 @@ final class AppState: ObservableObject {
 
     // MARK: - Updates
 
-    func checkForUpdates(manual: Bool = true) {
-        let settings = settingsStore.settings
-        guard !settings.updateFeedURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            if manual {
-                panelController.showError(UpdateCheckerError.noFeed.localizedDescription)
-            }
+    /// Sparkle owns the update UI, feed parsing, signature verification and
+    /// installation. We only start it after launch/onboarding and forward the
+    /// menu's "check now" action.
+    func startUpdater() {
+        guard !hasStartedUpdater else { return }
+        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else {
+            log.info("skipping Sparkle updater in test host")
             return
         }
+        hasStartedUpdater = true
+        _ = SparkleUpdater.shared
+    }
 
-        updateTask?.cancel()
-        updateTask = Task { [weak self] in
-            guard let self else { return }
-            do {
-                let result = try await UpdateChecker.check(
-                    feedURL: settings.updateFeedURL,
-                    currentVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.0.0",
-                    currentBuild: Int(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "0") ?? 0
-                )
-                switch result {
-                case .available(let release):
-                    self.panelController.showError(
-                        "发现新版本 \(release.version)。\n\(release.notes ?? "")",
-                        actionTitle: "打开下载页",
-                        onAction: {
-                            if let url = URL(string: release.url) {
-                                NSWorkspace.shared.open(url)
-                            }
-                        }
-                    )
-                case .upToDate:
-                    if manual {
-                        self.panelController.showError("当前已经是最新版本。")
-                    }
-                case .notConfigured:
-                    if manual {
-                        self.panelController.showError(UpdateCheckerError.noFeed.localizedDescription)
-                    }
-                }
-            } catch {
-                if manual {
-                    self.panelController.showError("检查更新失败：\(error.localizedDescription)")
-                } else {
-                    self.log.info("automatic update check failed: \(error.localizedDescription, privacy: .public)")
-                }
+    func checkForUpdates() {
+        startUpdater()
+        SparkleUpdater.shared.checkForUpdates()
+    }
+
+    // MARK: - Onboarding
+
+    @discardableResult
+    func presentOnboardingIfNeeded(force: Bool = false) -> Bool {
+        let forcedForQA = ProcessInfo.processInfo.environment["ST_FORCE_ONBOARDING"] == "1"
+        guard force || forcedForQA || OnboardingState.shouldShow() else { return false }
+
+        onboardingController.show(
+            appearance: settingsStore.settings.appearance,
+            onOpenPrivacy: {
+                SupportLinks.openPrivacy()
+            },
+            onComplete: { [weak self] in
+                guard let self else { return }
+                OnboardingState.markCompleted()
+                self.startUpdater()
             }
-        }
+        )
+        return true
     }
 
     // MARK: - Input / library
@@ -334,6 +320,12 @@ final class AppState: ObservableObject {
             },
             onCheckForUpdates: { [weak self] in
                 self?.checkForUpdates()
+            },
+            onOpenPrivacy: {
+                SupportLinks.openPrivacy()
+            },
+            onShowOnboarding: { [weak self] in
+                self?.presentOnboardingIfNeeded(force: true)
             }
         )
     }

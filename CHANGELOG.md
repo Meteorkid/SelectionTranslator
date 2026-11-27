@@ -2,6 +2,10 @@
 
 ## Unreleased — 0.4.0 之后
 
+- 许可证改为 Apache License 2.0，新增 `LICENSE`、`NOTICE` 中的项目声明，并随 App 一起打包。
+- 更新检查从轻量 JSON 切换为 Sparkle 2：`appcast.xml`、EdDSA 公钥、`SUFeedURL`/`SUPublicEDKey`、每日自动检查与手动检查。
+- 新增 `PRIVACY.md`，说明本机数据、联网时机、剪贴板/屏幕/权限边界；设置页新增“查看隐私说明”入口。
+- 新增首次启动引导，明确“不会误取、不会丢上下文、不会打断截图”，并可用“重新查看首次引导”再次打开；XCTest 仍为 33 个。
 - 浏览器/Electron AX 树预启用，Chrome 原生取词补上 AX text marker 上下文。
 - AX 调用增加 0.20s 超时；Chromium 聚焦元素 bounded fallback；安全输入和密码字段 fail closed；system-wide 焦点回退校验前台 PID。
 - 剪贴板降级改为目标 PID + `changeCount` + 快照恢复，文件复制不当作选中文字。

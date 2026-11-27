@@ -13,7 +13,9 @@ final class SettingsWindowController {
         onOpenLibrary: @escaping () -> Void,
         onRunOCR: @escaping () -> Void,
         onOpenInput: @escaping () -> Void,
-        onCheckForUpdates: @escaping () -> Void
+        onCheckForUpdates: @escaping () -> Void,
+        onOpenPrivacy: @escaping () -> Void,
+        onShowOnboarding: @escaping () -> Void
     ) {
         log.info("show settings requested")
         if window == nil {
@@ -23,7 +25,9 @@ final class SettingsWindowController {
                 onOpenLibrary: onOpenLibrary,
                 onRunOCR: onRunOCR,
                 onOpenInput: onOpenInput,
-                onCheckForUpdates: onCheckForUpdates
+                onCheckForUpdates: onCheckForUpdates,
+                onOpenPrivacy: onOpenPrivacy,
+                onShowOnboarding: onShowOnboarding
             )
             let hosting = NSHostingView(rootView: view)
             let window = NSWindow(

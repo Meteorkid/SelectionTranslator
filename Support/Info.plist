@@ -38,7 +38,17 @@
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSHumanReadableCopyright</key>
-	<string>Local-first reading assistant</string>
+	<string>Apache-2.0 · Local-first reading assistant</string>
+	<key>SUFeedURL</key>
+	<string>https://github.com/Meteorkid/SelectionTranslator/releases/latest/download/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>EMncmQ+lSAoFN/zZs+ntpIzQnrOJjY2iw6wYPRG1wKI=</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUScheduledCheckInterval</key>
+	<integer>86400</integer>
+	<key>SUAllowsAutomaticUpdates</key>
+	<false/>
 	<key>NSSupportsAutomaticTermination</key>
 	<false/>
 </dict>

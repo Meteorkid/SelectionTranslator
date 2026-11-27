@@ -328,8 +328,6 @@ struct AppSettings: Codable, Equatable, Sendable {
     var ankiDeck: String = "Default"
     var ankiModel: String = "Basic"
     var ankiTags: String = "SelectionTranslator"
-    var updateFeedURL: String = ""
-    var checkForUpdatesOnLaunch: Bool = false
     var hotkeys = HotKeySettings.default
 
     /// Ollama / LM Studio 等本地服务通常不校验 API Key。
@@ -374,8 +372,6 @@ struct AppSettings: Codable, Equatable, Sendable {
         case ankiDeck
         case ankiModel
         case ankiTags
-        case updateFeedURL
-        case checkForUpdatesOnLaunch
         case hotkeys
     }
 
@@ -402,8 +398,6 @@ struct AppSettings: Codable, Equatable, Sendable {
         ankiDeck = try container.decodeIfPresent(String.self, forKey: .ankiDeck) ?? defaults.ankiDeck
         ankiModel = try container.decodeIfPresent(String.self, forKey: .ankiModel) ?? defaults.ankiModel
         ankiTags = try container.decodeIfPresent(String.self, forKey: .ankiTags) ?? defaults.ankiTags
-        updateFeedURL = try container.decodeIfPresent(String.self, forKey: .updateFeedURL) ?? defaults.updateFeedURL
-        checkForUpdatesOnLaunch = try container.decodeIfPresent(Bool.self, forKey: .checkForUpdatesOnLaunch) ?? defaults.checkForUpdatesOnLaunch
         hotkeys = try container.decodeIfPresent(HotKeySettings.self, forKey: .hotkeys) ?? defaults.hotkeys
 
         // Older settings only stored DeepSeek's name while pointing at a local URL.

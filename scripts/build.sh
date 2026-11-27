@@ -11,7 +11,7 @@ xcodebuild \
   -scheme SelectionTranslator \
   -configuration Debug \
   -destination 'platform=macOS' \
-  -derivedDataPath build/DerivedData \
+  -derivedDataPath build/DerivedData -clonedSourcePackagesDirPath build/SourcePackages \
   build
 
 APP="$ROOT/build/DerivedData/Build/Products/Debug/SelectionTranslator.app"
@@ -20,6 +20,6 @@ if [ -z "$IDENTITY" ]; then
   IDENTITY="-"
   echo "No Apple Development identity found; falling back to ad-hoc signing."
 fi
-codesign --force --sign "$IDENTITY" --identifier com.meteor.SelectionTranslator "$APP"
+codesign --force --deep --sign "$IDENTITY" "$APP"
 echo "Built and signed: $APP"
 echo "Identity: $IDENTITY"

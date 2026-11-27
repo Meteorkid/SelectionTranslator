@@ -43,6 +43,8 @@ struct SettingsView: View {
     var onRunOCR: () -> Void
     var onOpenInput: () -> Void
     var onCheckForUpdates: () -> Void
+    var onOpenPrivacy: () -> Void
+    var onShowOnboarding: () -> Void
 
     @State private var apiKey: String = KeychainStore.read(key: "apiKey") ?? ""
     @State private var showKey = false
@@ -837,24 +839,54 @@ struct SettingsView: View {
             }
 
             Section {
-                fieldRow("更新 JSON 地址") {
-                    TextField("https://example.com/selectiontranslator.json", text: $store.settings.updateFeedURL)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(width: 320)
-                }
-
-                Toggle("启动时检查更新", isOn: $store.settings.checkForUpdatesOnLaunch)
-
                 HStack(spacing: 8) {
                     Button("检查更新") { onCheckForUpdates() }
                         .buttonStyle(.bordered)
 
-                    Text("只检查版本，不自动下载安装。")
+                    Text("由 Sparkle 检查、验证 EdDSA 签名并安装；自动检查每天最多一次。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                HStack(spacing: 6) {
+                    Image(systemName: "checkmark.seal")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.green)
+                    Text("更新源：GitHub appcast；不会上传翻译内容或本地历史。")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
             } header: {
                 STSectionHeader(title: "更新", systemImage: "arrow.triangle.2.circlepath")
+            }
+
+            Section {
+                HStack(spacing: 8) {
+                    Button {
+                        onOpenPrivacy()
+                    } label: {
+                        Label("查看隐私说明", systemImage: "lock.shield")
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+
+                    Button {
+                        onShowOnboarding()
+                    } label: {
+                        Label("重新查看首次引导", systemImage: "sparkles")
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+
+                    Spacer()
+                }
+
+                Text("历史、生词本和 API Key 默认只在本机；只有主动翻译时才会把文字发送到你配置的模型服务。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } header: {
+                STSectionHeader(title: "隐私与引导", systemImage: "hand.raised")
             }
 
             Section {

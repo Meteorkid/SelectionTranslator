@@ -14,7 +14,7 @@ UI 使用一套集中定义的 macOS 视觉系统：品牌头、分组标题、�
 
 GitHub Releases：<https://github.com/Meteorkid/SelectionTranslator/releases>
 
-- `SelectionTranslator-0.4.0.zip`：可直接打开的 App，当前为 **arm64 / Apple Development 开发签名**，尚未用 Developer ID 公证。首次打开可能被 Gatekeeper 拦截，需要在 Finder 里右键“打开”，或到系统设置里允许。
+- `SelectionTranslator-0.4.0.zip`：可直接打开的 App，当前为 **arm64 / Apache-2.0 / Apple Development 开发签名**，尚未用 Developer ID 公证。首次打开可能被 Gatekeeper 拦截，需要在 Finder 里右键“打开”，或到系统设置里允许。
 - `SelectionTranslator-0.4.0-source.zip`：源码、脚本、浏览器扩展和设计文档。
 - 也可以从源码构建；步骤见下方「构建」。
 
@@ -40,8 +40,8 @@ GitHub Releases：<https://github.com/Meteorkid/SelectionTranslator/releases>
 - 跨 App 取词硬化：Chrome/Electron 切前台时预启用 AX 树；Chromium 通过 AX text marker 补全文和上下文；只有 `AXSelectedTextMarkerRange` 的 WebKit/Chromium 选区也能取词；AX 调用有 0.20s 超时；system-wide 焦点回退校验前台 PID
 - 剪贴板降级安全化：目标 PID 定向复制、等待 `changeCount`、保留/恢复剪贴板快照，文件复制不会被当成选中文字；截图工具浮层期间跳过；并发触发串行化
 - Safari Web Extension：已生成并签名 `browser-extension/safari-project`，在 Safari 里启用并授予“所有网站”权限后，选区浮标 → 外部协议 → App 面板的端到端链路已走通
-- 轻量更新检查：设置里填版本 JSON 地址；手动检查可显示“发现新版本 / 已是最新 / 未配置”，不会自动下载安装
-- 自动化回归：`SelectionTranslatorTests` 共 33 个 XCTest 用例，覆盖 URL 解析、设置迁移（含外观回退）、Prompt、缓存 key、更新比较、History/CSV、OCR 版面/段落拼接/多 pass 评分、鼠标点校验、截图浮层检测、marker 范围反查
+- Sparkle 自动更新：`appcast.xml` + EdDSA 签名，设置页与菜单都可手动检查；Sparkle 负责下载、验证与安装
+- 自动化回归：`SelectionTranslatorTests` 共 33 个 XCTest 用例，覆盖 URL 解析、设置迁移（含外观回退）、Prompt、缓存 key、首启标记、History/CSV、OCR 版面/段落拼接/多 pass 评分、鼠标点校验、截图浮层检测、marker 范围反查
 - URL Scheme：`selectiontranslator://translate?...`、`clipboard`、`input`、`ocr`、`silent-ocr`、`library`、`settings`
 - 52 种目标语言目录，系统翻译与模型可用性因语言而异
 - 设置页：账户 / 翻译 / 上下文 / 快捷键 / 数据与权限，五个 Tab
@@ -137,13 +137,18 @@ xcodebuild \
 
 ## 检查更新
 
-设置 → 数据与权限 → 更新 JSON 地址，可填一个轻量版本源，格式：
+App 使用 Sparkle 2 做自动更新，feed 是仓库根目录的 `appcast.xml`：
 
-```json
-{"version":"0.4.0","build":5,"url":"https://example.com/download","notes":"更新说明"}
+```text
+https://github.com/Meteorkid/SelectionTranslator/releases/latest/download/appcast.xml
 ```
 
-点“检查更新”会请求该地址并比较数字版本与 build。发现新版本时会给出“打开下载页”；已是最新或未配置时也有明确提示。它不下载、不安装、不替换 App，也不引入 Sparkle。
+- 设置 → 数据与权限 → 更新：点“检查更新”；菜单栏也有同名入口。
+- Sparkle 负责下载、EdDSA 签名验证、解压与替换；`SUPublicEDKey` 已写入 Info.plist。
+- 自动检查每天最多一次；`SUAllowsAutomaticUpdates=false`，下载/安装前仍需你确认。
+- 当前 feed 以已发布的 `v0.4.0` 为基线；旧的 zip 不含 Sparkle，所以这一版不会自我更新。发布 0.4.1 时用 `scripts/appcast.sh` 生成新条目并上传对应 zip。
+
+更新信息不包含翻译内容、历史或 API Key。
 
 ## 文档上下文与 Anki
 
@@ -170,7 +175,14 @@ API Key 存在 Keychain（service `com.meteor.SelectionTranslator`，account `ap
 - Chrome 扩展已在干净测试 profile 完成“安装 → 浮标 → 点击 → 拉起 App”的端到端验收；Safari 已在 `safari-project` 构建、签名并完成“启用 → 浮标 → 拉起 App”的端到端验收。用户日常浏览器仍需手动加载/启用一次。
 - 截图 OCR / 静默 OCR 需要屏幕录制权限；本机已授权并完成一次交互式框选 OCR，但 OCR 对选区质量敏感，识别率不等于完美。未授权时 App 只提示一次，不反复弹系统窗。
 - 本机当前只有 `Apple Development` 证书，无法完成 Developer ID 公证；`scripts/notarize.sh` 已准备好，但不会伪造“已公证”结果。
-- 更新检查只读取轻量 JSON，不会自动下载安装；没有接 Sparkle，也没有“忽略此版本”之类的完整更新器 UI。
+- Sparkle 已接入；当前 `appcast.xml` 指向 v0.4.0 的旧 zip，它不含 Sparkle，因此这一版不会自动更新到自身。下一次发布才真正闭环。
+- 当前仍是 `Apple Development` 开发签名，未完成 Developer ID 公证；`notarize.sh` 已更新为对 Sparkle 嵌套组件重签，但需要证书与 notary profile 才能实际跑。
 - 不接 MDict、20+ 翻译服务、WebDAV、插件系统、多引擎并排；这些属于大型产品取舍，不是轻量 MVP 的优先项。
+
+## 隐私与许可
+
+- 隐私说明：[`PRIVACY.md`](PRIVACY.md)（App 内“设置 → 隐私与引导”和首启页都有入口）。
+- 许可证：Apache License 2.0，全文见 [`LICENSE`](LICENSE)。
+- 第三方组件：Sparkle（MIT）、ECDICT（MIT），详见 `Support/Resources/NOTICE.md`。
 
 更细的对照与验收记录见 `docs/v0.4.0-status.md` 和 `docs/easydict-review.md`。

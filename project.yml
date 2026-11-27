@@ -6,6 +6,11 @@ options:
   createIntermediateGroups: true
   groupSortPosition: top
 
+packages:
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: 2.9.6
+
 settings:
   base:
     SWIFT_VERSION: "5.0"
@@ -27,11 +32,16 @@ targets:
         buildPhase: resources
       - path: Support/Resources/NOTICE.md
         buildPhase: resources
+      - path: LICENSE
+        buildPhase: resources
+      - path: PRIVACY.md
+        buildPhase: resources
     dependencies:
       - sdk: Vision.framework
       - sdk: AVFoundation.framework
       - sdk: CoreServices.framework
       - sdk: libsqlite3.tbd
+      - package: Sparkle
     info:
       path: Support/Info.plist
       properties:
@@ -42,7 +52,12 @@ targets:
         LSUIElement: true
         NSSupportsAutomaticTermination: false
         NSHighResolutionCapable: true
-        NSHumanReadableCopyright: "Local-first reading assistant"
+        NSHumanReadableCopyright: "Apache-2.0 · Local-first reading assistant"
+        SUFeedURL: "https://github.com/Meteorkid/SelectionTranslator/releases/latest/download/appcast.xml"
+        SUPublicEDKey: "EMncmQ+lSAoFN/zZs+ntpIzQnrOJjY2iw6wYPRG1wKI="
+        SUEnableAutomaticChecks: true
+        SUScheduledCheckInterval: 86400
+        SUAllowsAutomaticUpdates: false
         CFBundleURLTypes:
           - CFBundleURLName: com.meteor.SelectionTranslator.url
             CFBundleURLSchemes:

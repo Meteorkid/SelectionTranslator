@@ -57,19 +57,7 @@ final class SettingsMigrationTests: XCTestCase {
         XCTAssertTrue(settings.useDocumentContext)
         XCTAssertEqual(settings.documentContextMaxChars, 6_000)
         XCTAssertEqual(settings.ankiURL, "http://127.0.0.1:8765")
-        XCTAssertEqual(settings.updateFeedURL, "")
-        XCTAssertFalse(settings.checkForUpdatesOnLaunch)
         XCTAssertEqual(settings.appearance, .native)
-    }
-
-    func testUpdateSettingsRoundTrip() throws {
-        var settings = AppSettings()
-        settings.updateFeedURL = "https://example.com/update.json"
-        settings.checkForUpdatesOnLaunch = true
-        let data = try JSONEncoder().encode(settings)
-        let decoded = try JSONDecoder().decode(AppSettings.self, from: data)
-        XCTAssertEqual(decoded.updateFeedURL, settings.updateFeedURL)
-        XCTAssertEqual(decoded.checkForUpdatesOnLaunch, true)
     }
 
     func testAppearanceRoundTrip() throws {
@@ -144,23 +132,6 @@ final class AppURLParserTests: XCTestCase {
     func testUnknownAndWrongScheme() {
         XCTAssertEqual(AppURLParser.parse(URL(string: "selectiontranslator://nope")!), .unknown("nope"))
         XCTAssertNil(AppURLParser.parse(URL(string: "https://example.com")!))
-    }
-}
-
-final class UpdateCheckerTests: XCTestCase {
-    func testParseAndVersionComparison() throws {
-        let release = try UpdateChecker.parse(Data("""
-        {"version":"0.4.0","build":4,"url":"https://example.com/app.zip","notes":"Test release"}
-        """.utf8))
-        XCTAssertTrue(UpdateChecker.isNewer(release, than: "0.3.0", build: 3))
-        XCTAssertFalse(UpdateChecker.isNewer(release, than: "0.4.0", build: 4))
-        XCTAssertTrue(UpdateChecker.isNewer(release, than: "0.4.0", build: 3))
-        XCTAssertFalse(UpdateChecker.isNewer(release, than: "0.5.0", build: 1))
-    }
-
-    func testInvalidFeed() {
-        XCTAssertThrowsError(try UpdateChecker.parse(Data("not json".utf8)))
-        XCTAssertThrowsError(try UpdateChecker.parse(Data("{\"version\":\"\"}".utf8)))
     }
 }
 
