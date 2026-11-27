@@ -10,6 +10,7 @@ final class LibraryViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
     @Published var noticeMessage: String?
+    @Published private(set) var pendingFavoriteIDs: Set<Int64> = []
     private var currentAccountID: UUID?
     private var currentFavoritesOnly = false
     private var currentSearch = ""
@@ -44,12 +45,16 @@ final class LibraryViewModel: ObservableObject {
     }
 
     func toggleFavorite(_ record: QueryRecord) async {
+        guard pendingFavoriteIDs.insert(record.id).inserted else { return }
+        defer { pendingFavoriteIDs.remove(record.id) }
         let accountID = currentAccountID
+        guard let index = records.firstIndex(where: { $0.id == record.id }) else { return }
+        let newValue = !records[index].isFavorite
         do {
-            try await HistoryStore.shared.setFavorite(id: record.id, isFavorite: !record.isFavorite)
+            try await HistoryStore.shared.setFavorite(id: record.id, isFavorite: newValue)
             guard currentAccountID == accountID else { return }
             if let index = records.firstIndex(where: { $0.id == record.id }) {
-                records[index].isFavorite.toggle()
+                records[index].isFavorite = newValue
             }
             if let accountID {
                 await reload(
@@ -59,6 +64,7 @@ final class LibraryViewModel: ObservableObject {
                 )
             }
         } catch {
+            guard currentAccountID == accountID else { return }
             errorMessage = error.localizedDescription
         }
     }
@@ -77,6 +83,7 @@ final class LibraryViewModel: ObservableObject {
                 )
             }
         } catch {
+            guard currentAccountID == accountID else { return }
             errorMessage = error.localizedDescription
         }
     }
@@ -350,6 +357,7 @@ struct LibraryView: View {
             ForEach(model.records) { record in
                 QueryRecordRow(
                     record: record,
+                    isFavoritePending: model.pendingFavoriteIDs.contains(record.id),
                     onToggleFavorite: {
                         Task { await model.toggleFavorite(record) }
                     },
@@ -430,6 +438,7 @@ struct LibraryView: View {
 
 private struct QueryRecordRow: View {
     let record: QueryRecord
+    let isFavoritePending: Bool
     var onToggleFavorite: () -> Void
     var onDelete: () -> Void
 
@@ -449,6 +458,8 @@ private struct QueryRecordRow: View {
                         .foregroundStyle(record.isFavorite ? Color.yellow : Color.secondary.opacity(0.75))
                 }
                 .buttonStyle(.borderless)
+                .disabled(isFavoritePending)
+                .opacity(isFavoritePending ? 0.45 : 1)
                 .help(record.isFavorite ? "取消收藏" : "收藏到生词本")
             }
 

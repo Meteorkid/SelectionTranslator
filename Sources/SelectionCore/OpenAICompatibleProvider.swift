@@ -64,11 +64,13 @@ struct OpenAICompatibleProvider: Sendable {
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
         urlRequest.setValue("text/event-stream", forHTTPHeaderField: "Accept")
 
+        let safeTemperature = min(max(request.temperature, 0), 2)
+        let safeMaxTokens = min(max(request.maxOutputTokens, 1), 8_192)
         let body: [String: Any] = [
             "model": request.model,
             "stream": true,
-            "temperature": request.temperature,
-            "max_tokens": request.maxOutputTokens,
+            "temperature": safeTemperature,
+            "max_tokens": safeMaxTokens,
             "messages": PromptBuilder.translationMessages(for: request)
         ]
         urlRequest.httpBody = try JSONSerialization.data(withJSONObject: body)
