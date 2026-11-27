@@ -53,7 +53,7 @@ GitHub Releases：<https://github.com/Meteorkid/SelectionTranslator/releases/lat
 - Safari Web Extension：已生成并签名 `browser-extension/safari-project`，在 Safari 里启用并授予“所有网站”权限后，选区浮标 → 外部协议 → App 面板的端到端链路已走通
 - Sparkle 自动更新：`appcast.xml` + EdDSA 签名，设置页与菜单都可手动检查；Sparkle 负责下载、验证与安装确认
 - 自动化回归：`SelectionTranslatorTests` 共 44 个 XCTest 用例，覆盖 URL 解析、设置迁移（含外观回退）、Prompt、缓存 key、首启标记、History/CSV、OCR 版面/段落拼接/多 pass 评分、鼠标点校验、截图浮层检测、marker 范围反查
-- URL Scheme：`selectiontranslator://translate?...`、`clipboard`、`input`、`ocr`、`silent-ocr`、`library`、`settings`；外部调用校验 Apple Event 来源 bundle ID 并限流
+- URL Scheme：`selectiontranslator://translate?...`、`clipboard`、`input`、`ocr`、`silent-ocr`、`library`、`settings`；外部调用校验 Apple Event 来源 bundle ID 与代码签名证书并限流
 - 52 种目标语言目录，系统翻译与模型可用性因语言而异
 - 设置页：账户 / 翻译 / 上下文 / 快捷键 / 数据与权限，五个 Tab
 

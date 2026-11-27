@@ -95,13 +95,39 @@ final class AdvancedFeatureTests: XCTestCase {
         XCTAssertEqual(DocumentContextTrimmer.trim(document, maxCharacters: 0, selection: "x"), "")
     }
 
-    func testExternalURLCallerAllowlist() {
-        XCTAssertTrue(ExternalURLCallerVerifier.isAllowed("com.apple.Safari"))
-        XCTAssertTrue(ExternalURLCallerVerifier.isAllowed("com.google.Chrome"))
-        XCTAssertTrue(ExternalURLCallerVerifier.isAllowed("com.apple.finder"))
-        XCTAssertFalse(ExternalURLCallerVerifier.isAllowed("com.example.malware"))
+    func testExternalURLCallerSignaturePolicy() {
+        let safari = ExternalURLCallerIdentity(
+            bundleID: "com.apple.Safari",
+            pid: 1,
+            certificateSummary: "Software Signing"
+        )
+        let chrome = ExternalURLCallerIdentity(
+            bundleID: "com.google.Chrome",
+            pid: 1,
+            certificateSummary: "Developer ID Application: Google LLC (EQHXZ8M8AV)"
+        )
+        let fakeChrome = ExternalURLCallerIdentity(
+            bundleID: "com.google.Chrome",
+            pid: 1,
+            certificateSummary: "Developer ID Application: Example Corp (FAKE123456)"
+        )
+        let fakeSafari = ExternalURLCallerIdentity(
+            bundleID: "com.apple.Safari",
+            pid: 1,
+            certificateSummary: "Developer ID Application: Example Corp (FAKE123456)"
+        )
+        XCTAssertTrue(ExternalURLCallerVerifier.isAllowed(safari))
+        XCTAssertTrue(ExternalURLCallerVerifier.isAllowed(chrome))
+        XCTAssertFalse(ExternalURLCallerVerifier.isAllowed(fakeChrome))
+        XCTAssertFalse(ExternalURLCallerVerifier.isAllowed(fakeSafari))
         XCTAssertFalse(ExternalURLCallerVerifier.isAllowed(nil))
-        XCTAssertFalse(ExternalURLCallerVerifier.isAllowed(""))
+        XCTAssertFalse(ExternalURLCallerVerifier.isAllowed(
+            ExternalURLCallerIdentity(
+                bundleID: "com.example.malware",
+                pid: 1,
+                certificateSummary: "Developer ID Application: Example Corp (FAKE123456)"
+            )
+        ))
     }
 
     func testHistoryCipherRoundTripAndPrefix() throws {

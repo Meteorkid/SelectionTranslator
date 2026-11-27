@@ -25,9 +25,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {
-        let callerBundleID = ExternalURLCallerVerifier.currentBundleID()
+        let caller = ExternalURLCallerVerifier.currentIdentity()
         Task { @MainActor in
-            AppState.shared?.handle(urls, callerBundleID: callerBundleID)
+            AppState.shared?.handle(urls, caller: caller)
         }
     }
 

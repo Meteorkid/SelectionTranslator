@@ -357,17 +357,17 @@ final class AppState: ObservableObject {
 
     // MARK: - URL scheme / external entry points
 
-    func handle(_ urls: [URL], callerBundleID: String? = nil) {
+    func handle(_ urls: [URL], caller: ExternalURLCallerIdentity? = nil) {
         for url in urls where url.scheme?.lowercased() == "selectiontranslator" {
-            handle(url, callerBundleID: callerBundleID)
+            handle(url, caller: caller)
         }
     }
 
-    private func handle(_ url: URL, callerBundleID: String?) {
+    private func handle(_ url: URL, caller: ExternalURLCallerIdentity?) {
         guard let command = AppURLParser.parse(url) else { return }
         switch command {
         case .translate(let request):
-            guard ExternalURLCallerVerifier.isAllowed(callerBundleID) else {
+            guard ExternalURLCallerVerifier.isAllowed(caller) else {
                 panelController.showError(
                     "无法验证外部调用来源，已拒绝。请从浏览器扩展、快捷指令或 Finder 重新调用。"
                 )
