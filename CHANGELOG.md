@@ -18,7 +18,8 @@
 ### 工程与隐私
 
 - 文档上下文改为 AES-GCM 加密文件，密钥在 Keychain；首次读取旧明文 `.txt` 自动迁移并删除旧文件；写入后 0600。
-- 历史 SQLite 改为字段级 AES-GCM：原文、译文、上下文、App 名与 bundle ID 加密，账户、时间、语言等查询字段保持明文；旧明文行首次读取时原地迁移；文件权限 0600；历史搜索改为解密后内存过滤，统计改用 `char_count`。
+- 历史 SQLite 改为字段级 AES-GCM：原文、译文、上下文、App 名与 bundle ID 加密，账户、时间、语言等查询字段保持明文；旧明文行与半迁移行首次读取时原地修复；`char_count` 自动回填；文件权限 0600；历史搜索改为解密后内存过滤。
+- `Application Support/SelectionTranslator` 目录收紧为 0700，`profiles.json` 写入后设为 0600；避免账户名等旁路数据被同机其他用户读取。
 - URL Scheme 外部调用增加 20,000 字符上限与每分钟 60 次限流；通过 Apple Event 原始地址解析调用方 bundle ID，只接受浏览器、Finder、快捷指令与自动化调用，无法验证来源时拒绝。
 - 新增 `AdvancedFeatureTests`（设置迁移、提示词、长文裁剪、URL 限流、加密迁移）与 `HistoryStoreTests` 加密/迁移用例；测试密钥可注入，避免 Keychain 弹窗拖慢 CI。
 - 新增 `SelectionTranslatorUITests` 冒烟测试 target 与独立 scheme（首启授权卡、设置页翻译/上下文控件）；默认 XCTest 仍只跑单元测试，UI 测试需系统 UI Automation 权限。

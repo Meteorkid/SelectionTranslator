@@ -257,6 +257,51 @@ final class HistoryStoreTests: XCTestCase {
         XCTAssertFalse(storedSource.contains("legacy secret"))
     }
 
+    func testHalfMigratedRowIsRepairedAndCountBackfilled() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("HistoryPartialMigrationTests-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let databaseURL = directory.appendingPathComponent("history.sqlite3")
+        let accountID = UUID()
+        let key = Data(repeating: 0x7C, count: 32)
+        let cipher = HistoryCipher(keyOverride: key)
+        let encryptedSource = try cipher.encrypt("partial source")
+
+        let schema = """
+        CREATE TABLE queries (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            account_id TEXT NOT NULL,
+            created_at REAL NOT NULL,
+            source_text TEXT NOT NULL,
+            translated_text TEXT NOT NULL,
+            context TEXT NOT NULL DEFAULT '',
+            app_name TEXT NOT NULL DEFAULT '',
+            bundle_id TEXT NOT NULL DEFAULT '',
+            source_kind TEXT NOT NULL DEFAULT '',
+            engine TEXT NOT NULL DEFAULT '',
+            target_language TEXT NOT NULL DEFAULT '',
+            is_favorite INTEGER NOT NULL DEFAULT 0,
+            char_count INTEGER NOT NULL DEFAULT 0
+        );
+        INSERT INTO queries
+        (account_id, created_at, source_text, translated_text, context, app_name, bundle_id, char_count)
+        VALUES ('\(accountID.uuidString)', 1001, '\(encryptedSource)', 'plain translation',
+                '', '', '', 0);
+        """
+        try execute(schema, at: databaseURL)
+
+        let store = HistoryStore(databaseURL: databaseURL, encryptionKey: key)
+        let records = try await store.records(accountID: accountID)
+        XCTAssertEqual(records.first?.sourceText, "partial source")
+        XCTAssertEqual(records.first?.translatedText, "plain translation")
+
+        let storedTranslation = try rawColumn("translated_text", at: databaseURL)
+        XCTAssertTrue(storedTranslation.hasPrefix(HistoryCipher.prefix))
+        let stats = try await store.stats(accountID: accountID)
+        XCTAssertEqual(stats.characters, "partial source".count)
+    }
+
     private func execute(_ sql: String, at url: URL) throws {
         var database: OpaquePointer?
         guard sqlite3_open(url.path, &database) == SQLITE_OK, let database else {

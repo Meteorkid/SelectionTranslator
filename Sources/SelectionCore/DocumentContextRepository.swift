@@ -20,6 +20,10 @@ enum DocumentContextRepository {
             .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("SelectionTranslator", isDirectory: true)
         try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try? FileManager.default.setAttributes(
+            [.posixPermissions: 0o700],
+            ofItemAtPath: root.path
+        )
         return root
     }
 

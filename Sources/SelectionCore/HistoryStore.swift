@@ -34,6 +34,14 @@ actor HistoryStore {
             let directory = FileManager.default
                 .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
                 .appendingPathComponent("SelectionTranslator", isDirectory: true)
+            try? FileManager.default.createDirectory(
+                at: directory,
+                withIntermediateDirectories: true
+            )
+            try? FileManager.default.setAttributes(
+                [.posixPermissions: 0o700],
+                ofItemAtPath: directory.path
+            )
             resolvedURL = directory.appendingPathComponent("history.sqlite3")
         }
         try? FileManager.default.createDirectory(
@@ -322,11 +330,18 @@ actor HistoryStore {
     /// Keychain is unavailable, keep the plaintext readable and retry on the
     /// next launch instead of losing the user's history.
     private func migrateLegacyRows(_ db: OpaquePointer) throws {
-        let cipher = currentCipher()
+        // Select any row that still has a non-empty plaintext field, or an
+        // encrypted row whose character count has not been backfilled. This
+        // also repairs rows left half-migrated by an interrupted write.
         let selectSQL = """
-        SELECT id, source_text, translated_text, context, app_name, bundle_id
+        SELECT id, source_text, translated_text, context, app_name, bundle_id, char_count
         FROM queries
-        WHERE source_text NOT LIKE 'enc:v1:%';
+        WHERE (source_text <> '' AND source_text NOT LIKE 'enc:v1:%')
+           OR (translated_text <> '' AND translated_text NOT LIKE 'enc:v1:%')
+           OR (context <> '' AND context NOT LIKE 'enc:v1:%')
+           OR (app_name <> '' AND app_name NOT LIKE 'enc:v1:%')
+           OR (bundle_id <> '' AND bundle_id NOT LIKE 'enc:v1:%')
+           OR (char_count = 0 AND source_text <> '');
         """
         let select = try prepare(selectSQL, in: db)
         defer { sqlite3_finalize(select) }
@@ -337,13 +352,21 @@ actor HistoryStore {
         )
         defer { sqlite3_finalize(update) }
 
+        var loadedCipher: HistoryCipher?
         while sqlite3_step(select) == SQLITE_ROW {
+            // Loading the Keychain key is deferred until there is a row that
+            // actually needs migration; a normal encrypted database can be
+            // opened for stats without showing a Keychain prompt.
+            let cipher = loadedCipher ?? currentCipher()
+            loadedCipher = cipher
+
             let id = sqlite3_column_int64(select, 0)
             let source = text(select, 1)
             let translation = text(select, 2)
             let context = text(select, 3)
             let appName = text(select, 4)
             let bundleID = text(select, 5)
+            let existingCount = sqlite3_column_int64(select, 6)
 
             let encryptedSource = try encryptedIfNeeded(source, cipher: cipher)
             let encryptedTranslation = try encryptedIfNeeded(translation, cipher: cipher)
@@ -351,12 +374,19 @@ actor HistoryStore {
             let encryptedAppName = try encryptedIfNeeded(appName, cipher: cipher)
             let encryptedBundleID = try encryptedIfNeeded(bundleID, cipher: cipher)
 
+            let characterCount: Int64
+            if HistoryCipher.isEncrypted(source) {
+                characterCount = (try? cipher.decrypt(source)).map { Int64($0.count) } ?? existingCount
+            } else {
+                characterCount = Int64(source.count)
+            }
+
             try bind(encryptedSource, to: update, index: 1)
             try bind(encryptedTranslation, to: update, index: 2)
             try bind(encryptedContext, to: update, index: 3)
             try bind(encryptedAppName, to: update, index: 4)
             try bind(encryptedBundleID, to: update, index: 5)
-            sqlite3_bind_int64(update, 6, Int64(source.count))
+            sqlite3_bind_int64(update, 6, characterCount)
             sqlite3_bind_int64(update, 7, id)
             guard sqlite3_step(update) == SQLITE_DONE else {
                 throw lastError(db)

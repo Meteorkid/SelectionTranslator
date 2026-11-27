@@ -9,7 +9,7 @@ SelectionTranslator（显示名「划词翻译」）是一个本地优先的 mac
 以下数据默认只保存在这台 Mac 上：
 
 - `~/Library/Application Support/SelectionTranslator/history.sqlite3`：翻译历史、生词本、账户标识；敏感文本字段用 AES-GCM 加密，文件权限 `0600`。
-- `~/Library/Application Support/SelectionTranslator/profiles.json`：本地账户名称与头像标识。
+- `~/Library/Application Support/SelectionTranslator/profiles.json`：本地账户名称与头像标识；文件权限 `0600`。整个 `SelectionTranslator` 数据目录权限为 `0700`。
 - `~/Library/Application Support/SelectionTranslator/document-context-<account-uuid>.enc`：你主动粘贴或从 PDF 导入的整篇文章上下文；AES-GCM 加密保存，文件权限 `0600`。
 - `~/Library/Preferences/SelectionTranslator.settings`：外观、快捷键、模型地址、上下文长度等设置。
 - Keychain（service `com.meteor.SelectionTranslator`）：`apiKey` 保存你填写的模型 API Key；`documentContextKey` 保存上下文加密密钥；`historyEncryptionKey` 保存历史字段加密密钥（均为 256 位，只在本机）。

@@ -41,6 +41,10 @@ final class LocalAccountStore: ObservableObject {
             .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("SelectionTranslator", isDirectory: true)
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try? FileManager.default.setAttributes(
+            [.posixPermissions: 0o700],
+            ofItemAtPath: directory.path
+        )
         fileURL = directory.appendingPathComponent("profiles.json")
 
         if let data = try? Data(contentsOf: fileURL),
@@ -109,5 +113,9 @@ final class LocalAccountStore: ObservableObject {
         let snapshot = LocalAccountSnapshot(profiles: profiles, activeID: activeID)
         guard let data = try? JSONEncoder().encode(snapshot) else { return }
         try? data.write(to: fileURL, options: .atomic)
+        try? FileManager.default.setAttributes(
+            [.posixPermissions: 0o600],
+            ofItemAtPath: fileURL.path
+        )
     }
 }

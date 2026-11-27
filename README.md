@@ -52,7 +52,7 @@ GitHub Releases：<https://github.com/Meteorkid/SelectionTranslator/releases/lat
 - 剪贴板降级安全化：目标 PID 定向复制、等待 `changeCount`、保留/恢复剪贴板快照，文件复制不会被当成选中文字；截图工具浮层期间跳过；并发触发串行化
 - Safari Web Extension：已生成并签名 `browser-extension/safari-project`，在 Safari 里启用并授予“所有网站”权限后，选区浮标 → 外部协议 → App 面板的端到端链路已走通
 - Sparkle 自动更新：`appcast.xml` + EdDSA 签名，设置页与菜单都可手动检查；Sparkle 负责下载、验证与安装确认
-- 自动化回归：`SelectionTranslatorTests` 共 43 个 XCTest 用例，覆盖 URL 解析、设置迁移（含外观回退）、Prompt、缓存 key、首启标记、History/CSV、OCR 版面/段落拼接/多 pass 评分、鼠标点校验、截图浮层检测、marker 范围反查
+- 自动化回归：`SelectionTranslatorTests` 共 44 个 XCTest 用例，覆盖 URL 解析、设置迁移（含外观回退）、Prompt、缓存 key、首启标记、History/CSV、OCR 版面/段落拼接/多 pass 评分、鼠标点校验、截图浮层检测、marker 范围反查
 - URL Scheme：`selectiontranslator://translate?...`、`clipboard`、`input`、`ocr`、`silent-ocr`、`library`、`settings`；外部调用校验 Apple Event 来源 bundle ID 并限流
 - 52 种目标语言目录，系统翻译与模型可用性因语言而异
 - 设置页：账户 / 翻译 / 上下文 / 快捷键 / 数据与权限，五个 Tab
@@ -106,7 +106,7 @@ https://github.com/Meteorkid/SelectionTranslator/releases/latest/download/appcas
 
 ```text
 ~/Library/Application Support/SelectionTranslator/
-├── profiles.json                         # 本地账户
+├── profiles.json                         # 本地账户（0600）
 ├── history.sqlite3                       # 历史 + 生词本（敏感字段 AES-GCM，0600）
 └── document-context-<account-uuid>.enc   # 当前账户的整篇上下文（AES-GCM）
 ```
@@ -135,7 +135,7 @@ xcodebuild test \
   -derivedDataPath build/DerivedData
 ```
 
-当前 43 个 XCTest 用例全部通过；最后一次结果：`** TEST SUCCEEDED **`。UI 冒烟测试单独放在 `SelectionTranslatorUITests` scheme，需要先在系统里允许 XCTest 的 UI Automation 权限：
+当前 44 个 XCTest 用例全部通过；最后一次结果：`** TEST SUCCEEDED **`。UI 冒烟测试单独放在 `SelectionTranslatorUITests` scheme，需要先在系统里允许 XCTest 的 UI Automation 权限：
 
 ```bash
 xcodebuild test \
