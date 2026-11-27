@@ -798,6 +798,7 @@ struct SettingsView: View {
                     .stEditorSurface(focused: contextFocused)
                     .focused($contextFocused)
                     .frame(height: 160)
+                    .disabled(!documentContextLoaded)
                     .overlay(alignment: .topLeading) {
                         if documentContext.isEmpty {
                             Text("粘贴正在读的文章、论文或文档…")
@@ -822,7 +823,7 @@ struct SettingsView: View {
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
-                    .disabled(isImportingPDF)
+                    .disabled(isImportingPDF || !documentContextLoaded)
 
                     Button("从剪贴板填入") {
                         if let text = NSPasteboard.general.string(forType: .string) {
@@ -831,6 +832,7 @@ struct SettingsView: View {
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
+                    .disabled(!documentContextLoaded)
 
                     Button("清空") {
                         guard DocumentContextRepository.clear(accountID: accountStore.activeID) else {
