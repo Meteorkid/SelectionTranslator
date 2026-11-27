@@ -53,7 +53,18 @@ enum ExternalURLCallerVerifier {
 
         if address.descriptorType == typeApplicationBundleID {
             bundleID = address.stringValue
-            pid = 0
+            // Some LaunchServices paths (notably Shortcuts/Automator) send a
+            // bundle-ID descriptor instead of a PSN. Resolve the live process
+            // for that bundle ID so the certificate check still applies
+            // instead of rejecting every bundle-ID-only caller.
+            if let bundleID,
+               let app = NSRunningApplication
+                   .runningApplications(withBundleIdentifier: bundleID)
+                   .first(where: { !$0.isTerminated }) {
+                pid = app.processIdentifier
+            } else {
+                pid = 0
+            }
         } else if address.descriptorType == typeProcessSerialNumber {
             pid = resolvePID(from: address)
             bundleID = runningApplication(pid: pid)?.bundleIdentifier

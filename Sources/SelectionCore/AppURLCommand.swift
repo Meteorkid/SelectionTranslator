@@ -17,6 +17,28 @@ enum AppURLCommand: Equatable, Sendable {
     case library
     case settings
     case unknown(String)
+
+    /// Every known URL command can read local data, trigger capture, or open
+    /// a window. Only the unknown fallback is inert, so only that case is
+    /// allowed through without a verified external caller.
+    var requiresExternalCallerVerification: Bool {
+        if case .unknown = self { return false }
+        return true
+    }
+
+    /// The existing `ExternalURLGate` was designed for text payloads. For
+    /// commands without a text body, use one token so they still share the
+    /// same per-minute request budget.
+    var externalRateLimitCharacters: Int {
+        switch self {
+        case .translate(let request):
+            return max(1, request.text.count)
+        case .clipboard, .input, .ocr, .silentOCR, .library, .settings:
+            return 1
+        case .unknown:
+            return 0
+        }
+    }
 }
 
 enum AppURLParser {

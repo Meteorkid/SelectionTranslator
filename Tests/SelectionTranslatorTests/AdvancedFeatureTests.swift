@@ -95,8 +95,33 @@ final class AdvancedFeatureTests: XCTestCase {
         XCTAssertEqual(DocumentContextTrimmer.trim(document, maxCharacters: 0, selection: "x"), "")
     }
 
-    func testExternalURLCallerSignaturePolicy() {
-        let safari = ExternalURLCallerIdentity(
+    func testExternalURLCommandsRequireVerifiedCaller() {
+        let request = BrowserTranslationRequest(
+            text: "hello",
+            context: "",
+            appName: "Chrome",
+            title: nil,
+            documentContext: ""
+        )
+        let commands: [AppURLCommand] = [
+            .translate(request),
+            .clipboard,
+            .input,
+            .ocr,
+            .silentOCR,
+            .library,
+            .settings
+        ]
+        for command in commands {
+            XCTAssertTrue(command.requiresExternalCallerVerification)
+            XCTAssertGreaterThan(command.externalRateLimitCharacters, 0)
+        }
+        XCTAssertEqual(AppURLCommand.translate(request).externalRateLimitCharacters, 5)
+        XCTAssertEqual(AppURLCommand.clipboard.externalRateLimitCharacters, 1)
+        XCTAssertFalse(AppURLCommand.unknown("nope").requiresExternalCallerVerification)
+    }
+
+    func testExternalURLCallerSignaturePolicy() {        let safari = ExternalURLCallerIdentity(
             bundleID: "com.apple.Safari",
             pid: 1,
             certificateSummary: "Software Signing"
@@ -116,8 +141,14 @@ final class AdvancedFeatureTests: XCTestCase {
             pid: 1,
             certificateSummary: "Developer ID Application: Example Corp (FAKE123456)"
         )
+        let shortcuts = ExternalURLCallerIdentity(
+            bundleID: "com.apple.shortcuts",
+            pid: 1,
+            certificateSummary: "Software Signing"
+        )
         XCTAssertTrue(ExternalURLCallerVerifier.isAllowed(safari))
         XCTAssertTrue(ExternalURLCallerVerifier.isAllowed(chrome))
+        XCTAssertTrue(ExternalURLCallerVerifier.isAllowed(shortcuts))
         XCTAssertFalse(ExternalURLCallerVerifier.isAllowed(fakeChrome))
         XCTAssertFalse(ExternalURLCallerVerifier.isAllowed(fakeSafari))
         XCTAssertFalse(ExternalURLCallerVerifier.isAllowed(nil))

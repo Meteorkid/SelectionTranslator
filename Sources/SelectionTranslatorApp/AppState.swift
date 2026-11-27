@@ -365,24 +365,39 @@ final class AppState: ObservableObject {
 
     private func handle(_ url: URL, caller: ExternalURLCallerIdentity?) {
         guard let command = AppURLParser.parse(url) else { return }
+
+        guard command.requiresExternalCallerVerification else {
+            if case .unknown(let action) = command {
+                log.info("unknown URL action: \(action, privacy: .public)")
+            }
+            return
+        }
+
+        // The public scheme must not let an arbitrary app read the clipboard,
+        // start a screen capture, or open an app window. Translate used to be
+        // the only guarded command; every known command now passes through
+        // the same caller-signature check.
+        guard ExternalURLCallerVerifier.isAllowed(caller) else {
+            panelController.showError(
+                "无法验证外部调用来源，已拒绝。请从浏览器扩展、快捷指令或 Finder 重新调用。"
+            )
+            return
+        }
+
+        if case .translate(let request) = command, request.text.isEmpty {
+            panelController.showError("URL 里没有 text 参数。")
+            return
+        }
+
+        guard externalURLGate.accept(textLength: command.externalRateLimitCharacters) else {
+            panelController.showError(
+                "外部调用过于频繁，或文本超过 \(ExternalURLGate.maxTextCharacters) 字符。请稍后再试。"
+            )
+            return
+        }
+
         switch command {
         case .translate(let request):
-            guard ExternalURLCallerVerifier.isAllowed(caller) else {
-                panelController.showError(
-                    "无法验证外部调用来源，已拒绝。请从浏览器扩展、快捷指令或 Finder 重新调用。"
-                )
-                return
-            }
-            guard !request.text.isEmpty else {
-                panelController.showError("URL 里没有 text 参数。")
-                return
-            }
-            guard externalURLGate.accept(textLength: request.text.count) else {
-                panelController.showError(
-                    "外部调用过于频繁，或文本超过 \(ExternalURLGate.maxTextCharacters) 字符。请稍后再试。"
-                )
-                return
-            }
             let capture = CaptureResult(
                 selectedText: String(request.text.prefix(ExternalURLGate.maxTextCharacters)),
                 context: String(request.context.prefix(ExternalURLGate.maxTextCharacters)),
