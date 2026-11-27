@@ -45,6 +45,18 @@ struct CaptureResult: Codable, Sendable {
         self.documentContext = documentContext
     }
 
+    func withSelectedText(_ text: String) -> CaptureResult {
+        CaptureResult(
+            selectedText: text,
+            context: context,
+            appName: appName,
+            bundleID: bundleID,
+            windowTitle: windowTitle,
+            source: source,
+            documentContext: documentContext
+        )
+    }
+
     func withDocumentContext(_ text: String) -> CaptureResult {
         CaptureResult(
             selectedText: selectedText,

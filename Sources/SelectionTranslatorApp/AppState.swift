@@ -455,6 +455,15 @@ final class AppState: ObservableObject {
             panelController.showError("已在设置里排除「\(capture.appName)」，不会在这个 App 里取词。")
             return
         }
+        // A select-all in a large PDF can otherwise persist an unbounded
+        // source blob and make the panel and history row enormous. The model
+        // prompt already caps selection length, so cap the capture at the same
+        // product boundary before it reaches history or the cache.
+        let selection = String(capture.selectedText.prefix(8_000))
+        let boundedCapture = selection == capture.selectedText
+            ? capture
+            : capture.withSelectedText(selection)
+
         let localDocument = settings.useDocumentContext
             ? DocumentContextRepository.read(accountID: accountStore.activeID)
             : ""
@@ -471,9 +480,9 @@ final class AppState: ObservableObject {
         let trimmedDocument = DocumentContextTrimmer.trim(
             mergedDocument,
             maxCharacters: limit,
-            selection: capture.selectedText
+            selection: boundedCapture.selectedText
         )
-        let enriched = capture.withDocumentContext(trimmedDocument)
+        let enriched = boundedCapture.withDocumentContext(trimmedDocument)
 
         log.info("capture app=\(enriched.appName, privacy: .public) source=\(enriched.source.rawValue, privacy: .public) selectionLen=\(enriched.selectedText.count, privacy: .public) contextLen=\(enriched.context.count, privacy: .public) documentLen=\(enriched.documentContext.count, privacy: .public)")
 
