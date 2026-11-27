@@ -94,7 +94,11 @@ final class TranslationPanelController {
     func hide() {
         model?.cancel()
         model = nil
+        // `orderOut` alone leaves the borderless panel alive in AppKit's
+        // window list; close it so repeated translations do not accumulate
+        // hidden NSHostingView trees.
         panel?.orderOut(nil)
+        panel?.close()
         panel = nil
     }
 

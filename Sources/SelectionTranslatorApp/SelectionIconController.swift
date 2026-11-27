@@ -97,6 +97,7 @@ final class SelectionIconController {
         hoverTask?.cancel()
         hoverTask = nil
         panel?.orderOut(nil)
+        panel?.close()
         panel = nil
         capture = nil
         onActivate = nil
