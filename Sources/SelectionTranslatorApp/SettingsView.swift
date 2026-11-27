@@ -159,6 +159,8 @@ struct SettingsView: View {
             documentSaveTask?.cancel()
             refreshProfileStats()
             loadDocumentContext()
+            pdfImportMessage = nil
+            ankiExportMessage = nil
             ankiHealth = nil
         }
         .onChange(of: documentContext) { _, newValue in
@@ -174,9 +176,7 @@ struct SettingsView: View {
                 try? await Task.sleep(nanoseconds: 400_000_000)
                 guard !Task.isCancelled else { return }
                 if DocumentContextRepository.write(newValue, accountID: accountID) {
-                    if documentContextError?.hasPrefix("自动保存失败") == true {
-                        documentContextError = nil
-                    }
+                    documentContextError = nil
                 } else {
                     documentContextError = "自动保存失败：无法加密或写入文档上下文。原文件未被覆盖。"
                 }
@@ -866,13 +866,13 @@ struct SettingsView: View {
                 Toggle("翻译时使用这篇文档作为上下文", isOn: $store.settings.useDocumentContext)
 
                 Stepper(
-                    "最多发送：\(store.settings.documentContextMaxChars) 字符",
+                    "本地文档最多发送：\(store.settings.documentContextMaxChars) 字符",
                     value: $store.settings.documentContextMaxChars,
                     in: 1000...12000,
                     step: 1000
                 )
 
-                Text("文档上下文只保存在本机，按账户隔离；上下文文件使用 AES-GCM 加密，只有主动翻译时才会把与选区相关的一段发送给你配置的服务。")
+                Text("文档上下文只保存在本机，按账户隔离；上下文文件使用 AES-GCM 加密，只有主动翻译时才会把与选区相关的一段发送给你配置的服务。浏览器扩展还会附带最多 6,000 字符的当前页面文本。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

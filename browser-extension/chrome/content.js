@@ -49,14 +49,18 @@ function translateCurrentSelection() {
   url.searchParams.set("text", text.slice(0, 8000));
   url.searchParams.set("context", context);
   url.searchParams.set("document", documentContext);
-  url.searchParams.set("app", "Chrome");
+  const browserName = /Edg\//.test(navigator.userAgent) ? "Edge" : "Chrome";
+  url.searchParams.set("app", browserName);
   url.searchParams.set("title", document.title || "");
   url.searchParams.set("source", "browser");
 
   removeButton();
   const target = url.toString();
   try {
-    chrome.runtime.sendMessage({ type: "selectiontranslator-open", url: target });
+    const sent = chrome.runtime.sendMessage({ type: "selectiontranslator-open", url: target });
+    if (sent && typeof sent.catch === "function") {
+      sent.catch(() => window.open(target, "_blank", "noopener,noreferrer"));
+    }
   } catch (_) {
     window.open(target, "_blank", "noopener,noreferrer");
   }
