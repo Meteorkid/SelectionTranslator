@@ -61,8 +61,14 @@ enum DocumentContextRepository {
             return .loaded(String(text.prefix(maxStoredCharacters)))
         }
 
-        guard let data = try? Data(contentsOf: legacyFileURL(accountID: accountID)),
-              let text = String(data: data, encoding: .utf8) else { return .empty }
+        guard let data = try? Data(contentsOf: legacyFileURL(accountID: accountID)) else {
+            return .empty
+        }
+        guard let text = String(data: data, encoding: .utf8) else {
+            // A corrupt legacy file is not "empty": deleting it during the
+            // settings auto-save would destroy the only copy.
+            return .unavailable
+        }
         write(text, accountID: accountID)
         if FileManager.default.fileExists(atPath: fileURL(accountID: accountID).path) {
             try? FileManager.default.removeItem(at: legacyFileURL(accountID: accountID))
@@ -102,6 +108,7 @@ enum DocumentContextRepository {
 
     private static let keyLock = NSLock()
     private static var cachedKey: SymmetricKey?
+    private static var lastKeyFailureAt: Date?
 
     private static func encryptionKey() -> SymmetricKey? {
         if let keyOverride {
@@ -114,6 +121,13 @@ enum DocumentContextRepository {
         keyLock.lock()
         defer { keyLock.unlock() }
         if let cachedKey { return cachedKey }
+        // A Keychain denial can make every keystroke/translation trigger a
+        // system prompt or a blocking lookup. Back off briefly, then retry so
+        // granting access later in the same session still recovers.
+        if let lastKeyFailureAt,
+           Date().timeIntervalSince(lastKeyFailureAt) < 5 {
+            return nil
+        }
 
         let account = "documentContextKey"
         switch KeychainStore.readResult(key: account) {
@@ -125,8 +139,10 @@ enum DocumentContextRepository {
             }
             let key = SymmetricKey(data: data)
             cachedKey = key
+            lastKeyFailureAt = nil
             return key
         case .failed:
+            lastKeyFailureAt = Date()
             return nil
         case .missing:
             let key = SymmetricKey(size: .bits256)
@@ -135,6 +151,7 @@ enum DocumentContextRepository {
                 return nil
             }
             cachedKey = key
+            lastKeyFailureAt = nil
             return key
         }
     }

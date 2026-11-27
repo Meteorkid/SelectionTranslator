@@ -265,6 +265,15 @@ final class AdvancedFeatureTests: XCTestCase {
         DocumentContextRepository.directoryOverride = directory
         DocumentContextRepository.keyOverride = Data(repeating: 0x42, count: 32)
 
+        let corruptAccountID = UUID()
+        let corruptLegacyURL = DocumentContextRepository.legacyFileURL(accountID: corruptAccountID)
+        try Data([0xFF, 0xFE, 0x00]).write(to: corruptLegacyURL, options: .atomic)
+        XCTAssertEqual(
+            DocumentContextRepository.loadResult(accountID: corruptAccountID),
+            .unavailable
+        )
+        XCTAssertTrue(FileManager.default.fileExists(atPath: corruptLegacyURL.path))
+
         let accountID = UUID()
         let legacyURL = DocumentContextRepository.legacyFileURL(accountID: accountID)
         try "旧版明文上下文".write(to: legacyURL, atomically: true, encoding: .utf8)
