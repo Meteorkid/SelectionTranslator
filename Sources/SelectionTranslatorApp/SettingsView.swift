@@ -957,6 +957,16 @@ struct SettingsView: View {
 
     private var shortcutsTab: some View {
         Form {
+            if !store.settings.hotkeys.warnings.isEmpty {
+                Section {
+                    ForEach(store.settings.hotkeys.warnings, id: \.self) { warning in
+                        Label(warning, systemImage: "exclamationmark.triangle.fill")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    }
+                }
+            }
+
             Section {
                 HotKeyRow(title: "划词翻译", binding: $store.settings.hotkeys.selection)
                 HotKeyRow(title: "剪贴板翻译", binding: $store.settings.hotkeys.clipboard)
@@ -970,7 +980,7 @@ struct SettingsView: View {
             }
 
             Section {
-                Text("快捷键至少需要一个修饰键（⌘/⌥/⌃/⇧）。冲突的组合会被跳过，并在系统日志里记录。")
+                Text("快捷键至少需要一个修饰键（⌘/⌥/⌃/⇧）。冲突的组合会被跳过；上方会提示具体原因。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
 

@@ -214,6 +214,27 @@ extension HotKeySettings {
     var allBindings: [HotKeyAction: HotKeyBinding] {
         Dictionary(uniqueKeysWithValues: HotKeyAction.allCases.map { ($0, binding(for: $0)) })
     }
+
+    /// Mirrors HotKeyManager's registration policy so the settings UI can
+    /// explain why a shortcut will not fire instead of only logging it.
+    var warnings: [String] {
+        var used: [String: HotKeyAction] = [:]
+        var result: [String] = []
+        for action in HotKeyAction.allCases {
+            let binding = binding(for: action)
+            guard binding.hasModifier else {
+                result.append("\(action.title) 需要至少一个修饰键")
+                continue
+            }
+            let signature = "\(binding.carbonModifiers)-\(binding.key.rawValue)"
+            if let existing = used[signature] {
+                result.append("\(action.title) 与 \(existing.title) 冲突，\(action.title)将被跳过")
+            } else {
+                used[signature] = action
+            }
+        }
+        return result
+    }
 }
 
 // MARK: - Languages

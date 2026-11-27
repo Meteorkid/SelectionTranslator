@@ -342,6 +342,19 @@ final class AdvancedFeatureTests: XCTestCase {
         XCTAssertFalse(EndpointURL.isPermittedTransport("http://api.deepseek.com/v1"))
     }
 
+    func testHotKeyWarningsMatchRegistrationPolicy() {
+        var settings = HotKeySettings.default
+        XCTAssertTrue(settings.warnings.isEmpty)
+
+        settings.clipboard = HotKeyBinding(key: .d, option: true)
+        XCTAssertEqual(settings.warnings.count, 1)
+        XCTAssertTrue(settings.warnings[0].contains("冲突"))
+
+        settings.clipboard = HotKeyBinding(key: .v, option: false)
+        let missingModifier = settings.warnings
+        XCTAssertTrue(missingModifier.contains(where: { $0.contains("至少一个修饰键") }))
+    }
+
     func testHotKeyCarbonModifiersUseControlBit() {
         let binding = HotKeyBinding(
             key: .a,
