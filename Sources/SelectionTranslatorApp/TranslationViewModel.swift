@@ -122,6 +122,8 @@ final class TranslationViewModel: ObservableObject {
             engineLabel = "缓存"
             translation = cached
             isStreaming = false
+            canExplainInContext = !captureContextEmpty
+                && TranslationPipeline.canUseModel(settings: settings ?? AppSettings(), apiKey: apiKey)
             persistIfNeeded()
 
         case .model(let request):

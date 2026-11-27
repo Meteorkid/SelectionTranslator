@@ -11,8 +11,11 @@ final class LibraryViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var noticeMessage: String?
     private var currentAccountID: UUID?
+    private var reloadGeneration = 0
 
     func reload(accountID: UUID, favoritesOnly: Bool, search: String) async {
+        reloadGeneration += 1
+        let generation = reloadGeneration
         currentAccountID = accountID
         isLoading = true
         errorMessage = nil
@@ -24,12 +27,16 @@ final class LibraryViewModel: ObservableObject {
             )
             async let statsTask = HistoryStore.shared.stats(accountID: accountID)
             let (loadedRecords, loadedStats) = try await (recordsTask, statsTask)
+            guard generation == reloadGeneration else { return }
             records = loadedRecords
             stats = loadedStats
         } catch {
+            guard generation == reloadGeneration else { return }
             errorMessage = error.localizedDescription
         }
-        isLoading = false
+        if generation == reloadGeneration {
+            isLoading = false
+        }
     }
 
     func toggleFavorite(_ record: QueryRecord) async {

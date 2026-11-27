@@ -28,6 +28,7 @@
 		25D8ECB80C7B4051DCD70D9A /* AppleDictionaryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEE609DA3D16764BC7B13BCC /* AppleDictionaryService.swift */; };
 		262B18525406912EB3D10BFC /* TextRangeResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B1785DF738046D8F3E11747 /* TextRangeResolver.swift */; };
 		2C2C6C312510306D5B44025E /* TranslationPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB92D70655508A769223DCD5 /* TranslationPanel.swift */; };
+		2C2FE8D090942B1AC9D8FEE8 /* AppVersion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95822275F733B392279F6C65 /* AppVersion.swift */; };
 		2C3CA6AFF28922C6DB21D476 /* TranslationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5D81079632C3A7D03B294E5 /* TranslationViewModel.swift */; };
 		3226A080F295FDF26A2C4463 /* OCRService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F271AC7DD762746A3BFDD2AF /* OCRService.swift */; };
 		3263C7E77D8E0D863C092157 /* OCRTextLayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C1992A8EABC66AC7C1CCB05 /* OCRTextLayoutTests.swift */; };
@@ -79,6 +80,7 @@
 		95F6C00C25DFC353DD3550CF /* PDFTextExtractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EC907158457E970A8D66570 /* PDFTextExtractor.swift */; };
 		97FAE1186F24D44DAD2FB359 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6BB64280E2C5AF7330E52284 /* AVFoundation.framework */; };
 		9B797ED54138A4003AC9077D /* HistoryCipher.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB6DAFB6024CE81A8E092E3B /* HistoryCipher.swift */; };
+		9CF571C66C7D67EC6F7C468D /* AppVersion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95822275F733B392279F6C65 /* AppVersion.swift */; };
 		9E56C03E4092E0F898391CCF /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FA9313DBF3731D6C5DB5DDA /* KeychainStore.swift */; };
 		9FB1F765845AD26773AA1A71 /* SelectionCaptureService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45FE801C69E996EEBCF63E8A /* SelectionCaptureService.swift */; };
 		9FEFB369E3815217090077A9 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 3A1766C5445B1FD308E0D86A /* Sparkle */; };
@@ -191,6 +193,7 @@
 		8F5A4617CFE0A161CEBA1067 /* SettingsWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowController.swift; sourceTree = "<group>"; };
 		91303FC24ADA4BFD2908D3A9 /* ExternalURLCallerVerifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExternalURLCallerVerifier.swift; sourceTree = "<group>"; };
 		95634E3592038BE54E89F201 /* OpenAICompatibleProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAICompatibleProvider.swift; sourceTree = "<group>"; };
+		95822275F733B392279F6C65 /* AppVersion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppVersion.swift; sourceTree = "<group>"; };
 		95F983882F0BCA8D277AFA30 /* CoreServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreServices.framework; path = System/Library/Frameworks/CoreServices.framework; sourceTree = SDKROOT; };
 		983CD29ED0ED802ABD092A3F /* SelectionProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelectionProbe.swift; sourceTree = "<group>"; };
 		A0D6BFB95F64B5ADAAAF8D31 /* HotKeyManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotKeyManager.swift; sourceTree = "<group>"; };
@@ -398,6 +401,7 @@
 				AEE609DA3D16764BC7B13BCC /* AppleDictionaryService.swift */,
 				86A96562EE9B40D9BB8B4D18 /* AppSettings.swift */,
 				53179DAE507C5370C66286F4 /* AppURLCommand.swift */,
+				95822275F733B392279F6C65 /* AppVersion.swift */,
 				051AF289F515267BB9D12FBD /* AXHelpers.swift */,
 				884ABAD6B2171740B4B61BDC /* CaptureResult.swift */,
 				343D28059A1472A13C94B216 /* ClipboardFallback.swift */,
@@ -613,6 +617,7 @@
 				026A364ABF37C79B3F217AC4 /* AnkiConnectService.swift in Sources */,
 				4434A285EB29FD1875307001 /* AppSettings.swift in Sources */,
 				8D2A8105ECCE81F574B8EE97 /* AppURLCommand.swift in Sources */,
+				2C2FE8D090942B1AC9D8FEE8 /* AppVersion.swift in Sources */,
 				25D8ECB80C7B4051DCD70D9A /* AppleDictionaryService.swift in Sources */,
 				DA72480F2B9BCED33C0F3991 /* CaptureResult.swift in Sources */,
 				371DEDD622BB064E4BA93E30 /* ClipboardFallback.swift in Sources */,
@@ -657,6 +662,7 @@
 				7B8241A23B8C3D68AB165F89 /* AppSettings.swift in Sources */,
 				4392E2B58C5B155FF3DFA796 /* AppState.swift in Sources */,
 				EECFE89997E75D04D5B83571 /* AppURLCommand.swift in Sources */,
+				9CF571C66C7D67EC6F7C468D /* AppVersion.swift in Sources */,
 				FD39C24AA6B8509C367FD820 /* AppleDictionaryService.swift in Sources */,
 				A50895D3E047AD7852C7A37A /* CaptureResult.swift in Sources */,
 				5A523DAE691E67836A8D4836 /* ClipboardFallback.swift in Sources */,
