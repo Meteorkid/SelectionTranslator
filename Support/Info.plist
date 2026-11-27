@@ -35,21 +35,26 @@
 	<string>14.0</string>
 	<key>LSUIElement</key>
 	<true/>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSHumanReadableCopyright</key>
 	<string>Apache-2.0 · Local-first reading assistant</string>
+	<key>NSSupportsAutomaticTermination</key>
+	<false/>
+	<key>SUAllowsAutomaticUpdates</key>
+	<false/>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
 	<key>SUFeedURL</key>
 	<string>https://github.com/Meteorkid/SelectionTranslator/releases/latest/download/appcast.xml</string>
 	<key>SUPublicEDKey</key>
 	<string>EMncmQ+lSAoFN/zZs+ntpIzQnrOJjY2iw6wYPRG1wKI=</string>
-	<key>SUEnableAutomaticChecks</key>
-	<true/>
 	<key>SUScheduledCheckInterval</key>
 	<integer>86400</integer>
-	<key>SUAllowsAutomaticUpdates</key>
-	<false/>
-	<key>NSSupportsAutomaticTermination</key>
-	<false/>
 </dict>
 </plist>
