@@ -214,13 +214,16 @@ actor HistoryStore {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.sortedKeys]
-        var output = ""
+        // Repeated String += is quadratic on a large history export; collect
+        // lines and join once so 100k records stay linear.
+        var lines: [String] = []
+        lines.reserveCapacity(records.count)
         for record in records {
             let data = try encoder.encode(record)
             guard let line = String(data: data, encoding: .utf8) else { continue }
-            output += line + "\n"
+            lines.append(line)
         }
-        try output.write(to: url, atomically: true, encoding: .utf8)
+        try lines.joined(separator: "\n").write(to: url, atomically: true, encoding: .utf8)
     }
 
 
