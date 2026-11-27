@@ -52,6 +52,7 @@ targets:
         CFBundleVersion: "7"
         LSMinimumSystemVersion: "14.0"
         LSUIElement: true
+        LSMultipleInstancesProhibited: true
         NSSupportsAutomaticTermination: false
         NSHighResolutionCapable: true
         NSHumanReadableCopyright: "Apache-2.0 · Local-first reading assistant"

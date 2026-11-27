@@ -175,10 +175,10 @@ enum ExternalURLCallerVerifier {
             guard let teamID = team.split(separator: "(").last?.dropLast() else {
                 return nil
             }
-            return "anchor apple generic and certificate leaf[subject.OU] = \"\(teamID)\""
+            return "anchor apple generic and certificate leaf[subject.OU] = \"\(teamID)\" and identifier \"\(bundleID)\""
         }
         if allowedBundleIDs.contains(bundleID) {
-            return "anchor apple"
+            return "anchor apple and identifier \"\(bundleID)\""
         }
         return nil
     }
