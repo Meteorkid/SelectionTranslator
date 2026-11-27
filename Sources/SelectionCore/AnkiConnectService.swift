@@ -106,6 +106,9 @@ enum AnkiConnectService {
               scheme == "http" || scheme == "https" else {
             throw AnkiConnectError.invalidURL
         }
+        guard EndpointURL.isPermittedTransport(normalized) else {
+            throw AnkiConnectError.requestFailed("公网 AnkiConnect 地址必须使用 HTTPS")
+        }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.timeoutInterval = 8

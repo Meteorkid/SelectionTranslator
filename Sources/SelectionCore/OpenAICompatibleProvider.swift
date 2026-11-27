@@ -2,6 +2,7 @@ import Foundation
 
 enum ProviderError: LocalizedError {
     case invalidURL
+    case insecureTransport
     case missingAPIKey
     case http(Int, String)
     case stream(String)
@@ -11,6 +12,8 @@ enum ProviderError: LocalizedError {
         switch self {
         case .invalidURL:
             return "API 地址无效"
+        case .insecureTransport:
+            return "公网 API 地址必须使用 HTTPS，避免 API Key 和译文在明文连接中泄露"
         case .missingAPIKey:
             return "还没有 API Key"
         case .http(let code, let body):
@@ -53,6 +56,9 @@ struct OpenAICompatibleProvider: Sendable {
               let scheme = url.scheme?.lowercased(),
               scheme == "http" || scheme == "https" else {
             throw ProviderError.invalidURL
+        }
+        guard EndpointURL.isPermittedTransport(base) else {
+            throw ProviderError.insecureTransport
         }
 
         var urlRequest = URLRequest(url: url)

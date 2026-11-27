@@ -335,6 +335,11 @@ final class AdvancedFeatureTests: XCTestCase {
         XCTAssertTrue(EndpointURL.isLocal("localhost:8765"))
         XCTAssertTrue(EndpointURL.isLocal("192.168.1.5:8765"))
         XCTAssertFalse(EndpointURL.isLocal("api.deepseek.com/v1"))
+        XCTAssertTrue(EndpointURL.isPermittedTransport("http://127.0.0.1:11434/v1"))
+        XCTAssertTrue(EndpointURL.isPermittedTransport("http://192.168.1.5:8765"))
+        XCTAssertTrue(EndpointURL.isPermittedTransport("api.deepseek.com/v1"))
+        XCTAssertTrue(EndpointURL.isPermittedTransport("https://api.deepseek.com/v1"))
+        XCTAssertFalse(EndpointURL.isPermittedTransport("http://api.deepseek.com/v1"))
     }
 
 }

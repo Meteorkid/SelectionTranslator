@@ -500,6 +500,14 @@ enum EndpointURL {
         isLocalHost(normalized(raw))
     }
 
+    /// Public endpoints must use HTTPS; loopback and private-network addresses
+    /// may use HTTP because that is what local model servers expose.
+    static func isPermittedTransport(_ raw: String) -> Bool {
+        let value = normalized(raw)
+        guard let scheme = URL(string: value)?.scheme?.lowercased() else { return false }
+        return scheme == "https" || (scheme == "http" && isLocal(value))
+    }
+
     private static func isLocalHost(_ normalized: String) -> Bool {
         var candidate = normalized
         if !candidate.contains("://") { candidate = "http://" + candidate }

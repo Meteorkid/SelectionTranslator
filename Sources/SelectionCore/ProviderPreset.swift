@@ -52,6 +52,9 @@ struct ProviderHealthResult: Sendable {
 enum ProviderHealth {
     static func check(baseURL: String, apiKey: String, model: String) async -> ProviderHealthResult {
         let base = normalizedBase(baseURL)
+        guard EndpointURL.isPermittedTransport(base) else {
+            return ProviderHealthResult(ok: false, message: "公网 API 地址必须使用 HTTPS")
+        }
         guard let modelsURL = URL(string: base + "/models") else {
             return ProviderHealthResult(ok: false, message: "Base URL 格式无效")
         }
@@ -77,7 +80,7 @@ enum ProviderHealth {
             if http.statusCode == 401 || http.statusCode == 403 {
                 return ProviderHealthResult(ok: false, message: "API Key 无效或没有权限（HTTP \(http.statusCode)）")
             }
-            if http.statusCode == 404, isLocal(base) {
+            if http.statusCode == 404, isLocal(base), base.contains(":11434") {
                 return await checkOllamaTags(base: base)
             }
             let body = String(data: data, encoding: .utf8)?.prefix(200) ?? ""
@@ -96,7 +99,9 @@ enum ProviderHealth {
             return ProviderHealthResult(ok: false, message: "Ollama 地址无效")
         }
         do {
-            let (data, response) = try await URLSession.shared.data(from: url)
+            var request = URLRequest(url: url)
+            request.timeoutInterval = 8
+            let (data, response) = try await URLSession.shared.data(for: request)
             guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
                 return ProviderHealthResult(ok: false, message: "Ollama 没有响应")
             }
