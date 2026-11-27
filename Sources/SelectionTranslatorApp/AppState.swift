@@ -22,6 +22,7 @@ final class AppState: ObservableObject {
     private var captureTask: Task<Void, Never>?
     private var hasStartedUpdater = false
     private var settingsSink: AnyCancellable?
+    private var accountSink: AnyCancellable?
     private var activationObserver: NSObjectProtocol?
     private var hasShownPermissionHelp = false
     private var externalURLGate = ExternalURLGate()
@@ -77,6 +78,17 @@ final class AppState: ObservableObject {
             )
         }
         applyMouseSelectionSettings(settingsStore.settings)
+
+        // A translation panel belongs to the account that opened it. If the
+        // user switches accounts elsewhere, hide it rather than letting an
+        // old record be favorited under the new account identity.
+        accountSink = accountStore.$activeID
+            .dropFirst()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.panelController.hide()
+                self?.selectionIconController.hide()
+            }
 
         settingsSink = settingsStore.$settings
             .dropFirst()
