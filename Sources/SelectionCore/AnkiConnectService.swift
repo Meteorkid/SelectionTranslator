@@ -48,31 +48,50 @@ enum AnkiConnectService {
             .split(whereSeparator: { $0 == "," || $0 == " " })
             .map(String.init)
             .filter { !$0.isEmpty }
-        let notes: [[String: Any]] = records.map { record in
-            var back = record.translatedText
-            if !record.context.isEmpty {
-                back += "\n\n---\n语境：\n" + String(record.context.prefix(1200))
+
+        // Do not put thousands of notes into one JSON request. A large export
+        // can exceed AnkiConnect's request timeout or the URLSession body
+        // budget; bounded batches keep progress and retries manageable.
+        let batchSize = 100
+        var added = 0
+        for start in stride(from: 0, to: records.count, by: batchSize) {
+            let end = min(start + batchSize, records.count)
+            let notes: [[String: Any]] = records[start..<end].map { record in
+                note(for: record, deck: deck, model: model, tags: tagList)
             }
-            return [
-                "deckName": deck.isEmpty ? "Default" : deck,
-                "modelName": model.isEmpty ? "Basic" : model,
-                "fields": [
-                    "Front": record.sourceText,
-                    "Back": back
-                ],
-                "tags": tagList,
-                "options": ["allowDuplicate": false]
-            ]
+            let result = try await request(
+                urlString: urlString,
+                action: "addNotes",
+                params: ["notes": notes]
+            )
+            guard let ids = result as? [Any] else {
+                throw AnkiConnectError.requestFailed("addNotes 返回格式不正确。")
+            }
+            added += ids.filter { !($0 is NSNull) }.count
         }
-        let result = try await request(
-            urlString: urlString,
-            action: "addNotes",
-            params: ["notes": notes]
-        )
-        guard let ids = result as? [Any] else {
-            throw AnkiConnectError.requestFailed("addNotes 返回格式不正确。")
+        return added
+    }
+
+    private static func note(
+        for record: QueryRecord,
+        deck: String,
+        model: String,
+        tags: [String]
+    ) -> [String: Any] {
+        var back = record.translatedText
+        if !record.context.isEmpty {
+            back += "\n\n---\n语境：\n" + String(record.context.prefix(1200))
         }
-        return ids.filter { !($0 is NSNull) }.count
+        return [
+            "deckName": deck.isEmpty ? "Default" : deck,
+            "modelName": model.isEmpty ? "Basic" : model,
+            "fields": [
+                "Front": record.sourceText,
+                "Back": back
+            ],
+            "tags": tags,
+            "options": ["allowDuplicate": false]
+        ]
     }
 
     private static func request(
