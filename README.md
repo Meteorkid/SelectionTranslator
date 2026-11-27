@@ -135,7 +135,15 @@ xcodebuild test \
   -derivedDataPath build/DerivedData
 ```
 
-当前 43 个 XCTest 用例全部通过；最后一次结果：`** TEST SUCCEEDED **`。UI 冒烟测试单独放在 `SelectionTranslatorUITests` scheme，需要先在系统里允许 XCTest 的 UI Automation 权限。
+当前 43 个 XCTest 用例全部通过；最后一次结果：`** TEST SUCCEEDED **`。UI 冒烟测试单独放在 `SelectionTranslatorUITests` scheme，需要先在系统里允许 XCTest 的 UI Automation 权限：
+
+```bash
+xcodebuild test \
+  -project SelectionTranslator.xcodeproj \
+  -scheme SelectionTranslatorUITests \
+  -destination 'platform=macOS' \
+  -derivedDataPath build/DerivedData
+```
 
 ## 浏览器扩展
 
