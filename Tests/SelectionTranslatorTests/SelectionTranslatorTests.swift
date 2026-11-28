@@ -338,6 +338,37 @@ final class HistoryStoreTests: XCTestCase {
         }
     }
 
+    func testAllRecordsReadsBeyondInteractiveLimit() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("HistoryUnboundedTests-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let databaseURL = directory.appendingPathComponent("history.sqlite3")
+        let store = HistoryStore(
+            databaseURL: databaseURL,
+            encryptionKey: Data(repeating: 0x2D, count: 32)
+        )
+        let accountID = UUID()
+        for index in 0..<305 {
+            _ = try await store.insert(
+                QueryRecord(
+                    accountID: accountID,
+                    sourceText: "source \(index)",
+                    translatedText: "translation \(index)",
+                    context: "",
+                    appName: "Bulk",
+                    sourceKind: "accessibility",
+                    engine: "model",
+                    targetLanguage: "简体中文"
+                )
+            )
+        }
+        let bounded = try await store.records(accountID: accountID)
+        XCTAssertEqual(bounded.count, 300)
+        let all = try await store.allRecords(accountID: accountID)
+        XCTAssertEqual(all.count, 305)
+    }
+
     private func rawColumn(_ column: String, at url: URL) throws -> String {
         var database: OpaquePointer?
         guard sqlite3_open(url.path, &database) == SQLITE_OK, let database else {

@@ -116,13 +116,15 @@ actor HistoryStore {
         accountID: UUID,
         search: String = "",
         favoritesOnly: Bool = false,
-        limit: Int = 300
+        limit: Int? = 300
     ) throws -> [QueryRecord] {
-        guard limit > 0 else { return [] }
+        if let limit, limit <= 0 { return [] }
         let db = try requireDatabase()
         let cipher = readableCipher()
         let trimmedSearch = search.trimmingCharacters(in: .whitespacesAndNewlines)
-        let defaultLimit = Int32(max(0, limit))
+        // SQLite treats a negative LIMIT as "no limit". Keep the interactive
+        // history bounded, but let export read the whole account.
+        let defaultLimit = limit.map { Int32(clamping: $0) } ?? -1
         let whereFavorite = favoritesOnly ? "AND is_favorite = 1" : ""
         let scanLimit = trimmedSearch.isEmpty ? defaultLimit : 100_000
         let sql = """
@@ -150,14 +152,14 @@ actor HistoryStore {
                 || record.context.localizedCaseInsensitiveContains(trimmedSearch)
                 || record.appName.localizedCaseInsensitiveContains(trimmedSearch) {
                 result.append(record)
-                if !trimmedSearch.isEmpty, result.count >= max(0, limit) { break }
+                if !trimmedSearch.isEmpty, let limit, result.count >= limit { break }
             }
         }
         return result
     }
 
     func allRecords(accountID: UUID) throws -> [QueryRecord] {
-        try records(accountID: accountID, limit: 100_000)
+        try records(accountID: accountID, limit: nil)
     }
 
     func updateTranslation(id: Int64, translatedText: String, engine: String) throws {
