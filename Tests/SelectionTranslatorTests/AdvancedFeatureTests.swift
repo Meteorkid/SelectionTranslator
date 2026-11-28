@@ -342,6 +342,34 @@ final class AdvancedFeatureTests: XCTestCase {
         XCTAssertFalse(EndpointURL.isPermittedTransport("http://api.deepseek.com/v1"))
     }
 
+    func testAnkiFieldsEscapeUntrustedHTML() {
+        let record = QueryRecord(
+            accountID: UUID(),
+            sourceText: "<img src=x onerror=\"alert(1)\">&",
+            translatedText: "译文\n第二行",
+            context: "<b>语境</b>",
+            appName: "Browser",
+            sourceKind: "browser",
+            engine: "model",
+            targetLanguage: "简体中文"
+        )
+        let note = AnkiConnectService.note(
+            for: record,
+            deck: "Default",
+            model: "Basic",
+            tags: ["test"]
+        )
+        let fields = note["fields"] as? [String: String]
+        XCTAssertEqual(
+            fields?["Front"],
+            "&lt;img src=x onerror=&quot;alert(1)&quot;&gt;&amp;"
+        )
+        let back = try? XCTUnwrap(fields?["Back"])
+        XCTAssertTrue(back?.contains("译文<br>第二行") == true)
+        XCTAssertTrue(back?.contains("&lt;b&gt;语境&lt;/b&gt;") == true)
+        XCTAssertFalse(back?.contains("<b>") == true)
+    }
+
     func testHotKeyWarningsMatchRegistrationPolicy() {
         var settings = HotKeySettings.default
         XCTAssertTrue(settings.warnings.isEmpty)

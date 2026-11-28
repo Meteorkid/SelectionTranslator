@@ -72,7 +72,7 @@ enum AnkiConnectService {
         return added
     }
 
-    private static func note(
+    static func note(
         for record: QueryRecord,
         deck: String,
         model: String,
@@ -86,12 +86,25 @@ enum AnkiConnectService {
             "deckName": deck.isEmpty ? "Default" : deck,
             "modelName": model.isEmpty ? "Basic" : model,
             "fields": [
-                "Front": record.sourceText,
-                "Back": back
+                // Anki fields are HTML. Escape page-controlled text so a
+                // selection containing markup is shown literally and cannot
+                // load remote resources inside a review card.
+                "Front": ankiHTML(record.sourceText),
+                "Back": ankiHTML(back)
             ],
             "tags": tags,
             "options": ["allowDuplicate": false]
         ]
+    }
+
+    private static func ankiHTML(_ text: String) -> String {
+        text
+            .replacingOccurrences(of: "&", with: "&amp;")
+            .replacingOccurrences(of: "<", with: "&lt;")
+            .replacingOccurrences(of: ">", with: "&gt;")
+            .replacingOccurrences(of: "\"", with: "&quot;")
+            .replacingOccurrences(of: "'", with: "&#39;")
+            .replacingOccurrences(of: "\n", with: "<br>")
     }
 
     private static func request(
