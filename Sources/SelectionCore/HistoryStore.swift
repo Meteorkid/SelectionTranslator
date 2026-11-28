@@ -4,6 +4,7 @@ import SQLite3
 enum HistoryStoreError: LocalizedError {
     case databaseUnavailable
     case sqlite(String)
+    case databaseCorrupt(String)
 
     var errorDescription: String? {
         switch self {
@@ -11,6 +12,8 @@ enum HistoryStoreError: LocalizedError {
             return "历史数据库不可用"
         case .sqlite(let message):
             return "历史数据库错误：\(message)"
+        case .databaseCorrupt(let message):
+            return "历史数据库已损坏：\(message)"
         }
     }
 }
@@ -19,6 +22,10 @@ private let sqliteTransient = unsafeBitCast(-1, to: sqlite3_destructor_type.self
 
 actor HistoryStore {
     static let shared = HistoryStore()
+    /// Set when a corrupt database had to be replaced. The original bytes
+    /// remain in Application Support so the user can still recover rows with
+    /// a SQLite recovery tool; the settings UI surfaces this path.
+    static let recoveryBackupDefaultsKey = "SelectionTranslator.history.recoveryBackup"
 
     private var database: OpaquePointer?
     private var didCreateSchema = false
@@ -27,6 +34,7 @@ actor HistoryStore {
     private var cipher: HistoryCipher?
     private var lastCipherFailureAt: Date?
     private var didMigrateLegacyRows = false
+    private var didAttemptCorruptRecovery = false
 
     init(databaseURL: URL? = nil, encryptionKey: Data? = nil) {
         let resolvedURL: URL
@@ -301,15 +309,24 @@ actor HistoryStore {
         if result != SQLITE_OK {
             let message = errorPointer.map { String(cString: $0) } ?? "unknown"
             sqlite3_free(errorPointer)
-            throw HistoryStoreError.sqlite(message)
+            throw sqliteError(result: result, message: message)
         }
     }
 
     private func requireDatabase() throws -> OpaquePointer {
         guard let database else { throw HistoryStoreError.databaseUnavailable }
         if !didCreateSchema {
-            try createSchema(database)
-            try ensureColumns(database)
+            do {
+                try createSchema(database)
+                try ensureColumns(database)
+            } catch HistoryStoreError.databaseCorrupt(let message) {
+                try recoverCorruptDatabase(reason: message)
+                guard let recovered = self.database else {
+                    throw HistoryStoreError.databaseUnavailable
+                }
+                try createSchema(recovered)
+                try ensureColumns(recovered)
+            }
             didCreateSchema = true
         }
         if !didMigrateLegacyRows {
@@ -324,6 +341,105 @@ actor HistoryStore {
             definition: "INTEGER NOT NULL DEFAULT 0",
             in: db
         )
+    }
+
+    private func sqliteError(result: Int32, message: String) -> HistoryStoreError {
+        let lower = message.lowercased()
+        let looksCorrupt = result == SQLITE_NOTADB
+            || result == SQLITE_CORRUPT
+            || lower.contains("not a database")
+            || lower.contains("malformed")
+        return looksCorrupt
+            ? HistoryStoreError.databaseCorrupt(message)
+            : HistoryStoreError.sqlite(message)
+    }
+
+    /// A malformed SQLite file should not leave the app permanently unable to
+    /// show or record history. Keep the original file (and any WAL sidecars)
+    /// under a timestamped, user-only-readable backup, then start a clean
+    /// database. The caller is told the backup path through UserDefaults so
+    /// the settings UI can point at the recoverable bytes.
+    private func recoverCorruptDatabase(reason: String) throws {
+        guard !didAttemptCorruptRecovery else {
+            throw HistoryStoreError.databaseCorrupt(reason)
+        }
+        didAttemptCorruptRecovery = true
+        guard let database else { throw HistoryStoreError.databaseUnavailable }
+        let closeResult = sqlite3_close(database)
+        guard closeResult == SQLITE_OK else {
+            throw HistoryStoreError.sqlite(
+                "无法关闭损坏的历史数据库（SQLite \(closeResult)）"
+            )
+        }
+        self.database = nil
+
+        let fileManager = FileManager.default
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyyMMdd-HHmmss"
+        let suffix = UUID().uuidString.prefix(8)
+        let backupURL = databaseURL
+            .deletingLastPathComponent()
+            .appendingPathComponent(
+                "history.corrupt-\(formatter.string(from: Date()))-\(suffix).sqlite3"
+            )
+        let sidecars = ["-wal", "-shm"]
+
+        do {
+            try fileManager.copyItem(at: databaseURL, to: backupURL)
+            try? fileManager.setAttributes(
+                [.posixPermissions: 0o600],
+                ofItemAtPath: backupURL.path
+            )
+            for suffix in sidecars {
+                let source = URL(fileURLWithPath: databaseURL.path + suffix)
+                guard fileManager.fileExists(atPath: source.path) else { continue }
+                let destination = URL(fileURLWithPath: backupURL.path + suffix)
+                try fileManager.copyItem(at: source, to: destination)
+                try? fileManager.setAttributes(
+                    [.posixPermissions: 0o600],
+                    ofItemAtPath: destination.path
+                )
+            }
+        } catch {
+            throw HistoryStoreError.sqlite(
+                "历史数据库已损坏，且备份失败：\(error.localizedDescription)"
+            )
+        }
+
+        do {
+            try fileManager.removeItem(at: databaseURL)
+            for suffix in sidecars {
+                let sidecar = URL(fileURLWithPath: databaseURL.path + suffix)
+                guard fileManager.fileExists(atPath: sidecar.path) else { continue }
+                try fileManager.removeItem(at: sidecar)
+            }
+        } catch {
+            throw HistoryStoreError.sqlite(
+                "历史数据库已备份到 \(backupURL.path)，但无法移除损坏文件：\(error.localizedDescription)"
+            )
+        }
+
+        var handle: OpaquePointer?
+        let result = sqlite3_open_v2(
+            databaseURL.path,
+            &handle,
+            SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX,
+            nil
+        )
+        guard result == SQLITE_OK, let handle else {
+            sqlite3_close(handle)
+            throw HistoryStoreError.databaseUnavailable
+        }
+        sqlite3_busy_timeout(handle, 5_000)
+        try? fileManager.setAttributes(
+            [.posixPermissions: 0o600],
+            ofItemAtPath: databaseURL.path
+        )
+        self.database = handle
+        didCreateSchema = false
+        didMigrateLegacyRows = false
+        UserDefaults.standard.set(backupURL.path, forKey: Self.recoveryBackupDefaultsKey)
     }
 
     private func addColumnIfNeeded(
@@ -348,7 +464,7 @@ actor HistoryStore {
         if message.contains("duplicate column name") {
             return
         }
-        throw HistoryStoreError.sqlite(message)
+        throw sqliteError(result: result, message: message)
     }
 
     /// Encrypt legacy plaintext rows in place once a key is available. If the

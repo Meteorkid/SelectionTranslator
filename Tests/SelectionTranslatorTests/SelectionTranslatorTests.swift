@@ -335,6 +335,57 @@ final class HistoryStoreTests: XCTestCase {
         XCTAssertEqual(stats.characters, "partial source".count)
     }
 
+    func testCorruptDatabaseIsBackedUpAndRebuilt() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("HistoryCorruptTests-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let databaseURL = directory.appendingPathComponent("history.sqlite3")
+        let original = Data("this is not a sqlite database".utf8)
+        try original.write(to: databaseURL)
+        UserDefaults.standard.removeObject(forKey: HistoryStore.recoveryBackupDefaultsKey)
+        defer {
+            UserDefaults.standard.removeObject(forKey: HistoryStore.recoveryBackupDefaultsKey)
+        }
+
+        let store = HistoryStore(
+            databaseURL: databaseURL,
+            encryptionKey: Data(repeating: 0x4E, count: 32)
+        )
+        let accountID = UUID()
+        let stats = try await store.stats(accountID: accountID)
+        XCTAssertEqual(stats.total, 0)
+
+        guard let backupPath = UserDefaults.standard.string(
+            forKey: HistoryStore.recoveryBackupDefaultsKey
+        ) else {
+            return XCTFail("expected a recovery backup path")
+        }
+        let backupURL = URL(fileURLWithPath: backupPath)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: backupURL.path))
+        XCTAssertEqual(try Data(contentsOf: backupURL), original)
+        let backupAttributes = try FileManager.default.attributesOfItem(atPath: backupURL.path)
+        XCTAssertEqual((backupAttributes[.posixPermissions] as? NSNumber)?.intValue, 0o600)
+
+        let databaseAttributes = try FileManager.default.attributesOfItem(atPath: databaseURL.path)
+        XCTAssertEqual((databaseAttributes[.posixPermissions] as? NSNumber)?.intValue, 0o600)
+
+        _ = try await store.insert(
+            QueryRecord(
+                accountID: accountID,
+                sourceText: "after recovery",
+                translatedText: "恢复后",
+                context: "",
+                appName: "UnitTest",
+                sourceKind: "accessibility",
+                engine: "model",
+                targetLanguage: "简体中文"
+            )
+        )
+        let rebuilt = try await store.stats(accountID: accountID)
+        XCTAssertEqual(rebuilt.total, 1)
+    }
+
     private func execute(_ sql: String, at url: URL) throws {
         var database: OpaquePointer?
         guard sqlite3_open(url.path, &database) == SQLITE_OK, let database else {

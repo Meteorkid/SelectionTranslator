@@ -68,6 +68,7 @@ struct SettingsView: View {
     @State private var screenRecordingTrusted = Permissions.hasScreenRecordingPermission()
     @State private var ollamaModels: [String] = []
     @State private var profileStats = HistoryStats()
+    @State private var historyRecoveryBackupPath: String?
     @State private var health: ProviderHealthResult?
     @State private var isTesting = false
     @State private var showingNewAccount = false
@@ -151,6 +152,9 @@ struct SettingsView: View {
             }
         }
         .onAppear {
+            historyRecoveryBackupPath = UserDefaults.standard.string(
+                forKey: HistoryStore.recoveryBackupDefaultsKey
+            )
             accessibilityTrusted = Permissions.isAccessibilityTrusted(prompt: false)
             screenRecordingTrusted = Permissions.hasScreenRecordingPermission()
             refreshOllama()
@@ -164,6 +168,13 @@ struct SettingsView: View {
             // without requiring the settings window to be reopened.
             accessibilityTrusted = Permissions.isAccessibilityTrusted(prompt: false)
             screenRecordingTrusted = Permissions.hasScreenRecordingPermission()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)) { _ in
+            // Recovery can happen while this window is open (e.g. the user
+            // opens the library first). Surface the backup path immediately.
+            historyRecoveryBackupPath = UserDefaults.standard.string(
+                forKey: HistoryStore.recoveryBackupDefaultsKey
+            )
         }
         .onChange(of: accountStore.activeID) { oldID, newID in
             guard oldID != newID else { return }
@@ -1082,6 +1093,39 @@ struct SettingsView: View {
                 }
             } header: {
                 STSectionHeader(title: "工具", systemImage: "wrench.and.screwdriver")
+            }
+
+            if let backupPath = historyRecoveryBackupPath {
+                Section {
+                    HStack(alignment: .top, spacing: 10) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(.orange)
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("历史数据库曾损坏，已重建为空库。原文件已备份，可用 SQLite 恢复工具尝试找回记录。")
+                                .font(.caption)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Text(backupPath)
+                                .font(.system(size: 10, design: .monospaced))
+                                .foregroundStyle(.secondary)
+                                .textSelection(.enabled)
+                                .lineLimit(3)
+                            Button("已查看，清除提示") {
+                                UserDefaults.standard.removeObject(
+                                    forKey: HistoryStore.recoveryBackupDefaultsKey
+                                )
+                                historyRecoveryBackupPath = nil
+                            }
+                            .buttonStyle(.borderless)
+                            .font(.caption)
+                        }
+                    }
+                } header: {
+                    STSectionHeader(
+                        title: "历史数据库恢复",
+                        systemImage: "externaldrive.badge.exclamationmark"
+                    )
+                }
             }
 
             Section {
