@@ -30,10 +30,14 @@ private final class OCRProcessBox: @unchecked Sendable {
     private var process: Process?
     private var cancelled = false
 
-    func install(_ process: Process) {
+    /// Returns false when cancellation arrived before the process was
+    /// installed; the caller must not start an overlay in that case.
+    func install(_ process: Process) -> Bool {
         lock.lock()
+        defer { lock.unlock() }
+        guard !cancelled else { return false }
         self.process = process
-        lock.unlock()
+        return true
     }
 
     func clear() {
@@ -64,19 +68,31 @@ enum OCRService {
     /// The child process is terminated when the surrounding task is cancelled,
     /// otherwise a pending screencapture overlay would outlive the panel.
     static func captureInteractiveText() async throws -> String {
-        let temporaryURL = URL(fileURLWithPath: NSTemporaryDirectory())
-            .appendingPathComponent("selectiontranslator-ocr-\(UUID().uuidString).png")
+        let temporaryDirectory = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("selectiontranslator-ocr-\(UUID().uuidString)", isDirectory: true)
+        let temporaryURL = temporaryDirectory.appendingPathComponent("capture.png")
         let box = OCRProcessBox()
 
         return try await withTaskCancellationHandler {
             try await Task.detached(priority: .userInitiated) {
-                defer { try? FileManager.default.removeItem(at: temporaryURL) }
+                defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
 
                 if box.isCancelled { throw CancellationError() }
+                do {
+                    try FileManager.default.createDirectory(
+                        at: temporaryDirectory,
+                        withIntermediateDirectories: true,
+                        attributes: [.posixPermissions: 0o700]
+                    )
+                } catch {
+                    throw OCRServiceError.processFailed(error.localizedDescription)
+                }
                 let process = Process()
                 process.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
                 process.arguments = ["-i", "-x", temporaryURL.path]
-                box.install(process)
+                guard box.install(process) else {
+                    throw CancellationError()
+                }
 
                 do {
                     try process.run()
