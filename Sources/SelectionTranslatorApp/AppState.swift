@@ -319,6 +319,7 @@ final class AppState: ObservableObject {
 
     func checkForUpdates() {
         startUpdater()
+        guard hasStartedUpdater else { return }
         SparkleUpdater.shared.checkForUpdates()
     }
 
