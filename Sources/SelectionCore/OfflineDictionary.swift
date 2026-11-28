@@ -6,9 +6,19 @@ final class OfflineDictionary {
     static let shared = OfflineDictionary()
 
     private var entries: [String: String] = [:]
-    private(set) var isLoaded = false
+    private var isLoaded = false
+    private let lock = NSLock()
 
     private init() {}
+
+
+    /// Load the bundled dictionary off the main thread at launch so the first
+    /// single-word lookup does not parse the whole TSV in the UI path.
+    func preload() {
+        lock.lock()
+        defer { lock.unlock() }
+        loadIfNeededLocked()
+    }
 
     /// 选中的内容是否适合先查词库：单个 token，长度不超过 40。
     static func isLookupCandidate(_ text: String) -> Bool {
@@ -20,7 +30,12 @@ final class OfflineDictionary {
 
     /// 查词；找不到返回 nil。首次调用时才加载词库。
     func lookup(_ text: String) -> String? {
-        loadIfNeeded()
+        // A background preload may still be parsing. Skipping the offline
+        // dictionary for that one selection is preferable to blocking the
+        // main thread behind a multi-megabyte file read.
+        guard lock.try() else { return nil }
+        defer { lock.unlock() }
+        loadIfNeededLocked()
 
         let key = text.trimmingCharacters(in: .whitespacesAndNewlines)
             .trimmingCharacters(in: .punctuationCharacters)
@@ -48,7 +63,7 @@ final class OfflineDictionary {
         return nil
     }
 
-    private func loadIfNeeded() {
+    private func loadIfNeededLocked() {
         guard !isLoaded else { return }
         isLoaded = true
 

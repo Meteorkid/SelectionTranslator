@@ -29,6 +29,11 @@ final class AppState: ObservableObject {
 
     init() {
         AppState.shared = self
+        // Parse the bundled offline dictionary off the main thread so the
+        // first word selection does not hitch while the TSV is loaded.
+        DispatchQueue.global(qos: .utility).async {
+            OfflineDictionary.shared.preload()
+        }
         panelController.appearanceProvider = { [weak self] in
             self?.settingsStore.settings.appearance ?? .native
         }
