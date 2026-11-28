@@ -405,19 +405,37 @@ private struct SystemTranslationBridge: View {
     @ObservedObject var model: TranslationViewModel
     @State private var configuration: TranslationSession.Configuration?
 
+    private func systemConfiguration() -> TranslationSession.Configuration {
+        TranslationSession.Configuration(
+            source: nil,
+            target: Locale.Language(
+                identifier: LanguageCatalog.systemIdentifier(for: model.systemTargetLanguage)
+            )
+        )
+    }
+
     var body: some View {
         Color.clear
             .frame(width: 0, height: 0)
             .onChange(of: model.needsSystemTranslation, initial: true) { _, needs in
                 if needs {
-                    configuration = TranslationSession.Configuration(
-                        source: nil,
-                        target: Locale.Language(
-                            identifier: LanguageCatalog.systemIdentifier(for: model.systemTargetLanguage)
-                        )
-                    )
+                    configuration = systemConfiguration()
                 } else {
                     configuration = nil
+                }
+            }
+            .onChange(of: model.systemToken) { _, _ in
+                // A retry can start a new system request while the boolean is
+                // already true; onChange(of: needs) would not fire. Recreate
+                // the configuration after clearing it so translationTask is
+                // forced to start a fresh session instead of reusing the old
+                // one.
+                guard model.needsSystemTranslation else { return }
+                configuration = nil
+                Task { @MainActor in
+                    await Task.yield()
+                    guard model.needsSystemTranslation else { return }
+                    configuration = systemConfiguration()
                 }
             }
             .translationTask(configuration) { session in

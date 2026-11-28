@@ -30,7 +30,7 @@ final class TranslationViewModel: ObservableObject {
     private var runGeneration = 0
     /// Identifies the current system-translation request so a late response
     /// from an earlier request cannot overwrite a newer one.
-    private(set) var systemToken = UUID()
+    @Published private(set) var systemToken = UUID()
     private var capture: CaptureResult?
     private var settings: AppSettings?
     private var apiKey = ""
