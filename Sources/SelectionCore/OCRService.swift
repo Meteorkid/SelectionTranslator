@@ -72,6 +72,32 @@ private final class OCRProcessBox: @unchecked Sendable {
 }
 
 enum OCRService {
+    private static let activeLock = NSLock()
+    private static var activeCaptures: [ObjectIdentifier: OCRProcessBox] = [:]
+
+    /// Terminate any interactive screencapture child when the app is quitting.
+    /// Otherwise the overlay can outlive the parent process and keep a
+    /// temporary screenshot on disk until the user dismisses it.
+    static func cancelActiveCaptures() {
+        activeLock.lock()
+        let boxes = Array(activeCaptures.values)
+        activeCaptures.removeAll()
+        activeLock.unlock()
+        boxes.forEach { $0.cancel() }
+    }
+
+    private static func register(_ box: OCRProcessBox) {
+        activeLock.lock()
+        activeCaptures[ObjectIdentifier(box)] = box
+        activeLock.unlock()
+    }
+
+    private static func unregister(_ box: OCRProcessBox) {
+        activeLock.lock()
+        activeCaptures.removeValue(forKey: ObjectIdentifier(box))
+        activeLock.unlock()
+    }
+
     /// Opens the native interactive selection UI, then runs Apple Vision OCR.
     /// The child process is terminated when the surrounding task is cancelled,
     /// otherwise a pending screencapture overlay would outlive the panel.
@@ -80,6 +106,8 @@ enum OCRService {
             .appendingPathComponent("selectiontranslator-ocr-\(UUID().uuidString)", isDirectory: true)
         let temporaryURL = temporaryDirectory.appendingPathComponent("capture.png")
         let box = OCRProcessBox()
+        register(box)
+        defer { unregister(box) }
 
         return try await withTaskCancellationHandler {
             try await Task.detached(priority: .userInitiated) {
