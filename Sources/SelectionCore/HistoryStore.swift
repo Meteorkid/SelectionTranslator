@@ -227,42 +227,118 @@ actor HistoryStore {
 
     func exportJSONL(accountID: UUID, to url: URL) throws {
         guard readableCipher().isAvailable else { throw HistoryCipherError.keyUnavailable }
-        let records = try allRecords(accountID: accountID)
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.sortedKeys]
-        // Repeated String += is quadratic on a large history export; collect
-        // lines and join once so 100k records stay linear.
-        var lines: [String] = []
-        lines.reserveCapacity(records.count)
-        for record in records {
-            let data = try encoder.encode(record)
-            guard let line = String(data: data, encoding: .utf8) else { continue }
-            lines.append(line)
+        // Stream one record at a time instead of materializing the whole
+        // decrypted history and a giant joined String. Large exports used to
+        // peak at several copies of every row.
+        try writeAtomically(to: url) { handle in
+            try forEachRecord(accountID: accountID) { record in
+                let data = try encoder.encode(record)
+                try handle.write(contentsOf: data)
+                try handle.write(contentsOf: Data("\n".utf8))
+            }
         }
-        try lines.joined(separator: "\n").write(to: url, atomically: true, encoding: .utf8)
     }
-
 
     func exportCSV(accountID: UUID, to url: URL) throws {
         guard readableCipher().isAvailable else { throw HistoryCipherError.keyUnavailable }
-        let records = try allRecords(accountID: accountID)
-        var lines = ["created_at,source,translation,context,app,engine,target_language,favorite"]
         let formatter = ISO8601DateFormatter()
-        for record in records {
-            let fields = [
-                formatter.string(from: record.createdAt),
-                record.sourceText,
-                record.translatedText,
-                record.context,
-                record.appName,
-                record.engine,
-                record.targetLanguage,
-                record.isFavorite ? "1" : "0"
-            ]
-            lines.append(fields.map(csvEscape).joined(separator: ","))
+        try writeAtomically(to: url) { handle in
+            try handle.write(
+                contentsOf: Data(
+                    "created_at,source,translation,context,app,engine,target_language,favorite\n".utf8
+                )
+            )
+            try forEachRecord(accountID: accountID) { record in
+                let fields = [
+                    formatter.string(from: record.createdAt),
+                    record.sourceText,
+                    record.translatedText,
+                    record.context,
+                    record.appName,
+                    record.engine,
+                    record.targetLanguage,
+                    record.isFavorite ? "1" : "0"
+                ]
+                let line = fields.map(csvEscape).joined(separator: ",") + "\n"
+                try handle.write(contentsOf: Data(line.utf8))
+            }
         }
-        try lines.joined(separator: "\n").write(to: url, atomically: true, encoding: .utf8)
+    }
+
+    /// Decrypted exports can contain the user's reading history, so the
+    /// finished file is 0600. Write to a sibling temp file first and replace
+    /// only after every row has been encoded; a failed export leaves any
+    /// previous export untouched.
+    private func writeAtomically(
+        to url: URL,
+        body: (FileHandle) throws -> Void
+    ) throws {
+        let fileManager = FileManager.default
+        let temporaryURL = url
+            .deletingLastPathComponent()
+            .appendingPathComponent(".\(url.lastPathComponent).\(UUID().uuidString).tmp")
+        guard fileManager.createFile(
+            atPath: temporaryURL.path,
+            contents: nil,
+            attributes: [.posixPermissions: 0o600]
+        ) else {
+            throw HistoryStoreError.sqlite("无法创建导出临时文件")
+        }
+        let handle: FileHandle
+        do {
+            handle = try FileHandle(forWritingTo: temporaryURL)
+        } catch {
+            try? fileManager.removeItem(at: temporaryURL)
+            throw HistoryStoreError.sqlite("无法打开导出临时文件：\(error.localizedDescription)")
+        }
+
+        do {
+            try body(handle)
+            try handle.synchronize()
+            try handle.close()
+            if fileManager.fileExists(atPath: url.path) {
+                _ = try fileManager.replaceItemAt(url, withItemAt: temporaryURL)
+            } else {
+                try fileManager.moveItem(at: temporaryURL, to: url)
+            }
+            try? fileManager.setAttributes(
+                [.posixPermissions: 0o600],
+                ofItemAtPath: url.path
+            )
+        } catch {
+            try? handle.close()
+            try? fileManager.removeItem(at: temporaryURL)
+            throw error
+        }
+    }
+
+    private func forEachRecord(
+        accountID: UUID,
+        _ body: (QueryRecord) throws -> Void
+    ) throws {
+        let db = try requireDatabase()
+        let cipher = readableCipher()
+        guard cipher.isAvailable else { throw HistoryCipherError.keyUnavailable }
+        let sql = """
+        SELECT id, account_id, created_at, source_text, translated_text, context,
+               app_name, bundle_id, source_kind, engine, target_language, is_favorite
+        FROM queries
+        WHERE account_id = ?
+        ORDER BY created_at DESC;
+        """
+        let statement = try prepare(sql, in: db)
+        defer { sqlite3_finalize(statement) }
+        try bind(accountID.uuidString, to: statement, index: 1)
+        while sqlite3_step(statement) == SQLITE_ROW {
+            try body(readRecord(from: statement, cipher: cipher))
+        }
+        let result = sqlite3_errcode(db)
+        guard result == SQLITE_OK || result == SQLITE_ROW || result == SQLITE_DONE else {
+            throw lastError(db)
+        }
     }
 
     private func csvEscape(_ value: String) -> String {
@@ -329,10 +405,16 @@ actor HistoryStore {
             }
             didCreateSchema = true
         }
-        if !didMigrateLegacyRows {
-            didMigrateLegacyRows = try migrateLegacyRows(database)
+        // Recovery replaces the SQLite handle. Never keep using the local
+        // `database` copy captured before the schema attempt: it points at the
+        // closed malformed database and would fail with SQLITE_MISUSE.
+        guard let activeDatabase = self.database else {
+            throw HistoryStoreError.databaseUnavailable
         }
-        return database
+        if !didMigrateLegacyRows {
+            didMigrateLegacyRows = try migrateLegacyRows(activeDatabase)
+        }
+        return activeDatabase
     }
 
     private func ensureColumns(_ db: OpaquePointer) throws {

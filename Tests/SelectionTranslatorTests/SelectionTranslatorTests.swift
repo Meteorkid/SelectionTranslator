@@ -184,6 +184,7 @@ final class HistoryStoreTests: XCTestCase {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let databaseURL = directory.appendingPathComponent("history.sqlite3")
         let csvURL = directory.appendingPathComponent("history.csv")
+        let jsonlURL = directory.appendingPathComponent("history.jsonl")
         defer { try? FileManager.default.removeItem(at: directory) }
 
         let encryptionKey = Data(repeating: 0x5A, count: 32)
@@ -243,6 +244,21 @@ final class HistoryStoreTests: XCTestCase {
         XCTAssertTrue(csv.contains("\"译文\""))
         XCTAssertTrue(csv.contains("\"\"b\"\"") || csv.contains("\"a,\"\"b\"\"\nline\""))
         XCTAssertTrue(csv.contains("\"1\""))
+        let csvAttributes = try FileManager.default.attributesOfItem(atPath: csvURL.path)
+        XCTAssertEqual((csvAttributes[.posixPermissions] as? NSNumber)?.intValue, 0o600)
+
+        try await store.exportJSONL(accountID: accountID, to: jsonlURL)
+        let jsonl = try String(contentsOf: jsonlURL, encoding: .utf8)
+        let jsonLines = jsonl.split(separator: "\n", omittingEmptySubsequences: true)
+        XCTAssertEqual(jsonLines.count, 2)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        for line in jsonLines {
+            let data = try XCTUnwrap(String(line).data(using: .utf8))
+            XCTAssertNoThrow(try decoder.decode(QueryRecord.self, from: data))
+        }
+        let jsonlAttributes = try FileManager.default.attributesOfItem(atPath: jsonlURL.path)
+        XCTAssertEqual((jsonlAttributes[.posixPermissions] as? NSNumber)?.intValue, 0o600)
     }
 
     func testLegacyPlaintextRowsAreMigrated() async throws {
