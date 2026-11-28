@@ -67,6 +67,11 @@ enum SelectionCaptureService {
         guard !IsSecureEventInputEnabled() else { return nil }
 
         let app = NSWorkspace.shared.frontmostApplication
+        if let app, app.processIdentifier == ProcessInfo.processInfo.processIdentifier {
+            // Selecting text inside our own panel/settings must not become a
+            // new translation source when a global shortcut fires.
+            return nil
+        }
         let bundleID = app?.bundleIdentifier
         if let bundleID, blockedBundleIDs.contains(bundleID) {
             return nil
