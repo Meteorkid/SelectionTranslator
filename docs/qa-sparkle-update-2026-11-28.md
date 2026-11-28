@@ -33,7 +33,7 @@
 ## 生产 0.4.2 → 0.4.3 验证
 
 1. 用 `ditto -x -k dist/SelectionTranslator-0.4.2.zip /tmp/prod-update-old` 解压，`codesign --verify --deep --strict` 通过。`unzip` 解压会破坏 `Sparkle.framework` 的符号链接，随后 `codesign` 报 `a sealed resource is missing or invalid`；这是解压工具问题，不是发布包损坏。
-2. 启动正式 0.4.2，自动检查请求 GitHub 最新 `appcast.xml`（HTTP 200），显示 0.4.3 更新说明并下载 `SelectionTranslator-0.4.3.zip`（约 4.1MB）。
+2. （appcast 改为信息型更新之前）启动正式 0.4.2，自动检查请求 GitHub 最新 `appcast.xml`（HTTP 200），显示 0.4.3 更新说明并下载 `SelectionTranslator-0.4.3.zip`（约 4.1MB）。
 3. 点击“Install and Relaunch”后，窗口停在 “Ready to Install”。`osascript -e 'tell application id "com.meteor.SelectionTranslator" to quit'` 返回 `-128`，进程不退出。
 4. 根因：正式 0.4.2 的 `AppDelegate.allowQuit = false`，`applicationShouldTerminate` 始终返回 `.terminateCancel`；0.4.3 才改为启动 3 秒后允许退出。启动 5 秒后对 0.4.3 执行同一 AppleEvent，进程正常退出，修复有效。
 5. 在安装等待状态强制退出旧 App 后，Sparkle 继续完成替换：`CFBundleShortVersionString` 从 `0.4.2` 变为 `0.4.3`，`CFBundleVersion` 从 `7` 变为 `8`，`codesign --verify --deep --strict` 通过。强制退出路径没有自动重启 App，手动打开后进程持续运行。
