@@ -151,11 +151,15 @@ struct LibraryView: View {
     @State private var selectedTab = 0
     @State private var showingNewAccount = false
     @State private var newAccountName = ""
+    @State private var historyRecoveryBackupPath: String?
     @Environment(\.stAppearance) private var stAppearance
 
     var body: some View {
         VStack(spacing: 0) {
             header
+            if let backupPath = historyRecoveryBackupPath {
+                historyRecoveryNotice(backupPath)
+            }
             Divider().opacity(0.45)
             filterBar
             Divider().opacity(0.35)
@@ -189,6 +193,16 @@ struct LibraryView: View {
                 favoritesOnly: selectedTab == 1,
                 search: model.search,
                 force: true
+            )
+        }
+        .onAppear {
+            historyRecoveryBackupPath = UserDefaults.standard.string(
+                forKey: HistoryStore.recoveryBackupDefaultsKey
+            )
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)) { _ in
+            historyRecoveryBackupPath = UserDefaults.standard.string(
+                forKey: HistoryStore.recoveryBackupDefaultsKey
             )
         }
         .sheet(isPresented: $showingNewAccount) {
@@ -405,6 +419,37 @@ struct LibraryView: View {
         .padding(.bottom, 40)
     }
 
+    private func historyRecoveryNotice(_ path: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.orange)
+            VStack(alignment: .leading, spacing: 5) {
+                Text("历史数据库曾损坏，已重建为空库。原文件已备份，可用 SQLite 恢复工具尝试找回记录。")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(path)
+                    .font(.system(size: 9, design: .monospaced))
+                    .foregroundStyle(.tertiary)
+                    .textSelection(.enabled)
+                    .lineLimit(2)
+                Button("知道了") {
+                    UserDefaults.standard.removeObject(
+                        forKey: HistoryStore.recoveryBackupDefaultsKey
+                    )
+                    historyRecoveryBackupPath = nil
+                }
+                .buttonStyle(.borderless)
+                .font(.system(size: 10))
+            }
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 9)
+        .background(Color.orange.opacity(0.07))
+    }
+
     private func notice(_ message: String, tone: STStatusTone) -> some View {
         HStack(spacing: 7) {
             Image(systemName: tone.systemImage)
@@ -428,7 +473,10 @@ struct LibraryView: View {
     private func exportJSONL() {
         let panel = NSSavePanel()
         panel.nameFieldStringValue = "selection-history.jsonl"
-        panel.allowedContentTypes = [.json]
+        // .json would make the save panel append a second .json extension.
+        // Use a dynamic JSON Lines type when the system knows it; fall back to
+        // public.json only if no jsonl type can be constructed.
+        panel.allowedContentTypes = [UTType(filenameExtension: "jsonl") ?? .json]
         guard panel.runModal() == .OK, let url = panel.url else { return }
         Task {
             await model.exportJSONL(accountID: accountStore.activeID, to: url)

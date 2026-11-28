@@ -15,6 +15,7 @@
 - 系统翻译的重试改为观察请求 token 并重建 `TranslationSession.Configuration`；即使 `needsSystemTranslation` 仍为真，也会真正启动新会话，而不是复用上一次请求。
 - 历史 SQLite 文件损坏时不再让历史功能永久卡死：先把原库及 `-wal`/`-shm` 备份为 `history.corrupt-yyyyMMdd-HHmmss-<uuid>.sqlite3`（0600），再重建空库；设置页会显示备份路径，提示可用恢复工具找回。新增损坏库恢复测试。
 - 历史 JSONL/CSV 导出改为逐条流式写入临时文件，再原子替换目标文件；超长历史不再把全部记录和整段字符串同时留在内存里，导出文件固定为 0600。
+- 历史页也显示数据库恢复备份提示，不再只有设置页能看到；JSONL 导出使用真正的 `.jsonl` 类型，避免保存面板追加 `.json` 后缀。
 
 ## 0.4.2 — 2026-11-27
 
