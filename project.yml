@@ -48,8 +48,8 @@ targets:
       path: Support/Info.plist
       properties:
         CFBundleDisplayName: 划词翻译
-        CFBundleShortVersionString: "0.4.2"
-        CFBundleVersion: "7"
+        CFBundleShortVersionString: "0.4.3"
+        CFBundleVersion: "8"
         LSMinimumSystemVersion: "14.0"
         LSUIElement: true
         LSMultipleInstancesProhibited: true
@@ -72,8 +72,8 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.meteor.SelectionTranslator
         PRODUCT_NAME: SelectionTranslator
         SWIFT_OBJC_BRIDGING_HEADER: Sources/SelectionTranslatorApp/BridgingHeader.h
-        MARKETING_VERSION: "0.4.2"
-        CURRENT_PROJECT_VERSION: "7"
+        MARKETING_VERSION: "0.4.3"
+        CURRENT_PROJECT_VERSION: "8"
 
   SelectionTranslatorTests:
     type: bundle.unit-test

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "SelectionTranslator Browser Bridge",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "description": "把浏览器选区连同上下文发送给本机 SelectionTranslator。",
   "permissions": [
     "contextMenus",
