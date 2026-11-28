@@ -32,6 +32,107 @@ final class OCRTextLayoutTests: XCTestCase {
         XCTAssertEqual(OCRTextLayout.text(from: lines), "First paragraph\n\nSecond paragraph")
     }
 
+    func testTwoColumnArticleReadsLeftColumnBeforeRight() {
+        var lines: [RecognizedLine] = [
+            RecognizedLine(
+                text: "Article title",
+                frame: CGRect(x: 0.16, y: 0.00, width: 0.56, height: 0.04)
+            )
+        ]
+        for index in 0..<3 {
+            let y = 0.10 + CGFloat(index) * 0.08
+            lines.append(RecognizedLine(
+                text: "Left \(index + 1)",
+                frame: CGRect(x: 0.05, y: y, width: 0.38, height: 0.04)
+            ))
+            lines.append(RecognizedLine(
+                text: "Right \(index + 1)",
+                frame: CGRect(x: 0.55, y: y, width: 0.38, height: 0.04)
+            ))
+        }
+        lines.append(RecognizedLine(
+            text: "Page footer",
+            frame: CGRect(x: 0.10, y: 0.36, width: 0.80, height: 0.04)
+        ))
+
+        XCTAssertEqual(
+            OCRTextLayout.text(from: lines),
+            "Article title\n\nLeft 1\nLeft 2\nLeft 3\n\nRight 1\nRight 2\nRight 3\n\nPage footer"
+        )
+    }
+
+    func testFullWidthSectionHeadingSplitsColumnSegments() {
+        var lines: [RecognizedLine] = [
+            RecognizedLine(
+                text: "Article title",
+                frame: CGRect(x: 0.16, y: 0.00, width: 0.56, height: 0.04)
+            )
+        ]
+        for index in 0..<3 {
+            let y = 0.10 + CGFloat(index) * 0.08
+            lines.append(RecognizedLine(
+                text: "Left \(index + 1)",
+                frame: CGRect(x: 0.05, y: y, width: 0.38, height: 0.04)
+            ))
+            lines.append(RecognizedLine(
+                text: "Right \(index + 1)",
+                frame: CGRect(x: 0.55, y: y, width: 0.38, height: 0.04)
+            ))
+        }
+        lines.append(RecognizedLine(
+            text: "Section",
+            frame: CGRect(x: 0.16, y: 0.30, width: 0.56, height: 0.04)
+        ))
+        for index in 0..<3 {
+            let y = 0.36 + CGFloat(index) * 0.08
+            lines.append(RecognizedLine(
+                text: "Left \(index + 4)",
+                frame: CGRect(x: 0.05, y: y, width: 0.38, height: 0.04)
+            ))
+            lines.append(RecognizedLine(
+                text: "Right \(index + 4)",
+                frame: CGRect(x: 0.55, y: y, width: 0.38, height: 0.04)
+            ))
+        }
+
+        XCTAssertEqual(
+            OCRTextLayout.text(from: lines),
+            "Article title\n\nLeft 1\nLeft 2\nLeft 3\n\nRight 1\nRight 2\nRight 3\n\nSection\n\nLeft 4\nLeft 5\nLeft 6\n\nRight 4\nRight 5\nRight 6"
+        )
+    }
+
+    func testTwoColumnsWithoutHeaderStayInReadingOrder() {
+        var lines: [RecognizedLine] = []
+        for index in 0..<3 {
+            let y = 0.04 + CGFloat(index) * 0.08
+            lines.append(RecognizedLine(
+                text: "L\(index + 1)",
+                frame: CGRect(x: 0.04, y: y, width: 0.40, height: 0.04)
+            ))
+            lines.append(RecognizedLine(
+                text: "R\(index + 1)",
+                frame: CGRect(x: 0.56, y: y, width: 0.40, height: 0.04)
+            ))
+        }
+
+        XCTAssertEqual(OCRTextLayout.text(from: lines), "L1\nL2\nL3\n\nR1\nR2\nR3")
+    }
+
+    func testSingleColumnWithManyNarrowLinesIsNotSplit() {
+        var lines: [RecognizedLine] = []
+        for index in 0..<6 {
+            lines.append(RecognizedLine(
+                text: "Line \(index + 1)",
+                frame: CGRect(x: 0.05, y: CGFloat(index) * 0.10, width: 0.38, height: 0.04)
+            ))
+        }
+
+        XCTAssertEqual(
+            OCRTextLayout.text(from: lines),
+            "Line 1\nLine 2\nLine 3\nLine 4\nLine 5\nLine 6"
+        )
+    }
+
     func testOrdinaryLineGapUsesSingleNewline() {
         let lines = [
             RecognizedLine(
