@@ -78,6 +78,8 @@ struct SettingsView: View {
     @State private var documentContext = ""
     @State private var documentContextLoaded = true
     @State private var documentContextError: String?
+    @State private var showingClearContextConfirmation = false
+    @State private var clearContextAccountID: UUID?
     @State private var newGlossaryTerm = ""
     @State private var newGlossaryTranslation = ""
     @State private var pdfImportMessage: String?
@@ -851,16 +853,23 @@ struct SettingsView: View {
                     .disabled(!documentContextLoaded)
 
                     Button("清空") {
-                        guard DocumentContextRepository.clear(accountID: accountStore.activeID) else {
-                            documentContextError = "清空失败：无法删除文档上下文文件。"
-                            return
-                        }
-                        documentContextLoaded = true
-                        documentContextError = nil
-                        documentContext = ""
+                        clearContextAccountID = accountStore.activeID
+                        showingClearContextConfirmation = true
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
+                    .alert("清空文档上下文？", isPresented: $showingClearContextConfirmation) {
+                        Button("清空", role: .destructive) {
+                            clearDocumentContext(accountID: clearContextAccountID ?? accountStore.activeID)
+                        }
+                        Button("取消", role: .cancel) {}
+                    } message: {
+                        Text(
+                            documentContextLoaded
+                                ? "这会删除当前账户已保存的加密文档上下文。"
+                                : "当前文档上下文无法解密。清空会永久删除原文件，请确认钥匙串访问确实无法恢复。"
+                        )
+                    }
 
                     Button("保存") {
                         if DocumentContextRepository.write(documentContext, accountID: accountStore.activeID) {
@@ -1292,6 +1301,17 @@ struct SettingsView: View {
             apiKey = ""
             apiKeyError = "无法读取钥匙串中的 API Key。重新输入可覆盖保存；关闭设置不会清除原值。"
         }
+    }
+
+    private func clearDocumentContext(accountID: UUID) {
+        guard DocumentContextRepository.clear(accountID: accountID) else {
+            documentContextError = "清空失败：无法删除文档上下文文件。"
+            return
+        }
+        guard accountID == accountStore.activeID else { return }
+        documentContextLoaded = true
+        documentContextError = nil
+        documentContext = ""
     }
 
     private func loadDocumentContext() {

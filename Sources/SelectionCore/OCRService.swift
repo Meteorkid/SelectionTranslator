@@ -30,13 +30,21 @@ private final class OCRProcessBox: @unchecked Sendable {
     private var process: Process?
     private var cancelled = false
 
-    /// Returns false when cancellation arrived before the process was
-    /// installed; the caller must not start an overlay in that case.
-    func install(_ process: Process) -> Bool {
+    /// Starts the capture process atomically with respect to cancel. If the
+    /// process were installed first and started later, a cancel in between
+    /// would see `isRunning == false`, skip termination, and leave the
+    /// interactive overlay alive after the task had already been cancelled.
+    func start(_ process: Process) throws -> Bool {
         lock.lock()
         defer { lock.unlock() }
         guard !cancelled else { return false }
         self.process = process
+        do {
+            try process.run()
+        } catch {
+            self.process = nil
+            throw error
+        }
         return true
     }
 
@@ -90,14 +98,13 @@ enum OCRService {
                 let process = Process()
                 process.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
                 process.arguments = ["-i", "-x", temporaryURL.path]
-                guard box.install(process) else {
-                    throw CancellationError()
-                }
-
                 do {
-                    try process.run()
+                    guard try box.start(process) else {
+                        throw CancellationError()
+                    }
+                } catch let error as CancellationError {
+                    throw error
                 } catch {
-                    box.clear()
                     throw OCRServiceError.processFailed(error.localizedDescription)
                 }
                 process.waitUntilExit()
