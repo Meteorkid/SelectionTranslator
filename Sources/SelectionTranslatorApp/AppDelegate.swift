@@ -1,6 +1,11 @@
 import AppKit
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    /// AppKit sends at least one quit request while SwiftUI is still building
+    /// the MenuBarExtra scene. Ignore only this short startup window; later
+    /// menu, logout and Sparkle termination requests must proceed.
+    private let processStartedAt = Date()
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         ProcessInfo.processInfo.disableAutomaticTermination("Menu bar translator must stay running")
@@ -39,10 +44,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         // XCTest can send a quit AppleEvent while async tests are still
-        // running; keep the test host alive. Normal app termination (menu,
-        // system logout and Sparkle installation) must not be blocked.
-        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil
-            ? .terminateNow
-            : .terminateCancel
+        // running; keep the test host alive. During the first few seconds,
+        // AppKit's scene setup may also request termination before the menu
+        // bar item exists. Once the app is actually running, let menu, system
+        // logout and Sparkle installation quit normally.
+        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
+            return .terminateCancel
+        }
+        if Date().timeIntervalSince(processStartedAt) < 3 {
+            return .terminateCancel
+        }
+        return .terminateNow
     }
 }
