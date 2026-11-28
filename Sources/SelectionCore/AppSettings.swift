@@ -533,17 +533,40 @@ enum EndpointURL {
     private static func isLocalHost(_ normalized: String) -> Bool {
         var candidate = normalized
         if !candidate.contains("://") { candidate = "http://" + candidate }
-        guard let host = URL(string: candidate)?.host?.lowercased() else { return false }
+        guard var host = URL(string: candidate)?.host?.lowercased() else { return false }
+        if host.hasSuffix(".") { host.removeLast() }
         if host == "localhost" || host == "::1" || host == "0.0.0.0" { return true }
-        if host.hasPrefix("127.") || host.hasPrefix("10.") || host.hasPrefix("192.168.") {
-            return true
-        }
-        if host.hasPrefix("172."),
-           let second = host.split(separator: ".").dropFirst().first,
-           let number = Int(second),
-           (16...31).contains(number) {
-            return true
+        if let octets = ipv4Octets(host) {
+            switch octets[0] {
+            case 127, 10:
+                return true
+            case 192 where octets[1] == 168:
+                return true
+            case 172 where (16...31).contains(octets[1]):
+                return true
+            default:
+                return false
+            }
         }
         return host.hasSuffix(".local")
+    }
+
+    /// A hostname such as `127.0.0.1.example.com` must not inherit the
+    /// loopback allowance. Require a real dotted-quad IPv4 literal with four
+    /// numeric octets in 0...255 before treating a host as a private address.
+    private static func ipv4Octets(_ host: String) -> [Int]? {
+        let parts = host.split(separator: ".", omittingEmptySubsequences: false)
+        guard parts.count == 4 else { return nil }
+        var octets: [Int] = []
+        for part in parts {
+            guard !part.isEmpty,
+                  part.allSatisfy({ $0.isASCII && $0.isNumber }),
+                  let number = Int(part),
+                  (0...255).contains(number) else {
+                return nil
+            }
+            octets.append(number)
+        }
+        return octets
     }
 }

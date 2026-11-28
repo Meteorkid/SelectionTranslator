@@ -340,6 +340,15 @@ final class AdvancedFeatureTests: XCTestCase {
         XCTAssertTrue(EndpointURL.isPermittedTransport("api.deepseek.com/v1"))
         XCTAssertTrue(EndpointURL.isPermittedTransport("https://api.deepseek.com/v1"))
         XCTAssertFalse(EndpointURL.isPermittedTransport("http://api.deepseek.com/v1"))
+        // Prefix-matching hostnames used to be mistaken for private IPs and
+        // would have allowed public HTTP endpoints to receive an API key.
+        XCTAssertFalse(EndpointURL.isPermittedTransport("http://127.0.0.1.example.com/v1"))
+        XCTAssertFalse(EndpointURL.isPermittedTransport("http://10.example.com/v1"))
+        XCTAssertFalse(EndpointURL.isPermittedTransport("http://192.168.example.com/v1"))
+        XCTAssertFalse(EndpointURL.isPermittedTransport("http://172.16.example.com/v1"))
+        XCTAssertFalse(EndpointURL.isPermittedTransport("http://172.32.0.1/v1"))
+        XCTAssertTrue(EndpointURL.isPermittedTransport("http://10.0.0.2:11434/v1"))
+        XCTAssertTrue(EndpointURL.isPermittedTransport("http://172.31.0.2:11434/v1"))
     }
 
     func testAnkiFieldsEscapeUntrustedHTML() {
