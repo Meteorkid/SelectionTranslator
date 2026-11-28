@@ -11,6 +11,7 @@
 		027006F86E86B7B78EAD2FB9 /* SparkleUpdater.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28FA9A0419C20DF6A38C807C /* SparkleUpdater.swift */; };
 		047EF07AB6F704D93E9BC335 /* SupportLinks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BCC6961D89479529FE1E5D7 /* SupportLinks.swift */; };
 		052D0EA1064FD01B4CD9F279 /* PDFKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 83DC024D2B4B49DAF0855AE9 /* PDFKit.framework */; };
+		052F3A8155F5178879345F30 /* ApplicationTerminationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14ED069EA6C787D4BC08668A /* ApplicationTerminationTests.swift */; };
 		0A908F9F5F7220CBDD11E5EE /* SelectionTranslatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0715BCF90437696C58F56E7F /* SelectionTranslatorTests.swift */; };
 		0AF0543B64EE61FBF8A895F2 /* HotKeyManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0D6BFB95F64B5ADAAAF8D31 /* HotKeyManager.swift */; };
 		0E1A1CD3B8A194DF33602254 /* AXHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 051AF289F515267BB9D12FBD /* AXHelpers.swift */; };
@@ -68,6 +69,7 @@
 		778C49BE4F59FC27677FF9C6 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6BB64280E2C5AF7330E52284 /* AVFoundation.framework */; };
 		78554FD90D62A927489D2DF5 /* ApplicationServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0B093C4EF730DBFE36606FE5 /* ApplicationServices.framework */; };
 		7B8241A23B8C3D68AB165F89 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86A96562EE9B40D9BB8B4D18 /* AppSettings.swift */; };
+		8019B4E4575533949948585B /* ApplicationTerminationPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27A8671EFDDED32A67BF3A82 /* ApplicationTerminationPolicy.swift */; };
 		85A9739CE9DDDD3DA3B0FE4B /* QueryRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = C30E2A759870E0BB04EA9511 /* QueryRecord.swift */; };
 		8AF27B53BF1EFCFA45CC861D /* OnboardingStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9A5349E2A038D9513834F15 /* OnboardingStateTests.swift */; };
 		8C79929079583A85DA523C83 /* PSNResolver.c in Sources */ = {isa = PBXBuildFile; fileRef = B6BA23ECD3EF064144E5A3B3 /* PSNResolver.c */; };
@@ -157,10 +159,12 @@
 		090F7F7BF0C12653E30AA7C0 /* SelectionHitTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelectionHitTest.swift; sourceTree = "<group>"; };
 		0B093C4EF730DBFE36606FE5 /* ApplicationServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ApplicationServices.framework; path = System/Library/Frameworks/ApplicationServices.framework; sourceTree = SDKROOT; };
 		0FA9313DBF3731D6C5DB5DDA /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
+		14ED069EA6C787D4BC08668A /* ApplicationTerminationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationTerminationTests.swift; sourceTree = "<group>"; };
 		1BD67372EE1246B4D7921083 /* LocalAccount.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalAccount.swift; sourceTree = "<group>"; };
 		1C1992A8EABC66AC7C1CCB05 /* OCRTextLayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OCRTextLayoutTests.swift; sourceTree = "<group>"; };
 		210E55D209D4FADC22BA5FF0 /* SelectionProbe */ = {isa = PBXFileReference; includeInIndex = 0; path = SelectionProbe; sourceTree = BUILT_PRODUCTS_DIR; };
 		225265FE69995CFF8028E10D /* TextRangeResolverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextRangeResolverTests.swift; sourceTree = "<group>"; };
+		27A8671EFDDED32A67BF3A82 /* ApplicationTerminationPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationTerminationPolicy.swift; sourceTree = "<group>"; };
 		28FA9A0419C20DF6A38C807C /* SparkleUpdater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SparkleUpdater.swift; sourceTree = "<group>"; };
 		2979474EEDB131083396868E /* TranslationPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranslationPipeline.swift; sourceTree = "<group>"; };
 		2A1FB61DF4E17F84C33A614A /* OnboardingState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingState.swift; sourceTree = "<group>"; };
@@ -323,6 +327,7 @@
 			isa = PBXGroup;
 			children = (
 				AFF992AC66E52CD7085D5D75 /* AppDelegate.swift */,
+				27A8671EFDDED32A67BF3A82 /* ApplicationTerminationPolicy.swift */,
 				4329E72765AF5BD277BB5972 /* AppState.swift */,
 				8B1DD7693402B838BED9014B /* BridgingHeader.h */,
 				007ECA4F7680820808F61601 /* DesignSystem.swift */,
@@ -371,6 +376,7 @@
 			isa = PBXGroup;
 			children = (
 				B2E5779BAE187410031B32E7 /* AdvancedFeatureTests.swift */,
+				14ED069EA6C787D4BC08668A /* ApplicationTerminationTests.swift */,
 				1C1992A8EABC66AC7C1CCB05 /* OCRTextLayoutTests.swift */,
 				F9A5349E2A038D9513834F15 /* OnboardingStateTests.swift */,
 				04272AB64CCDEDD19E74F35F /* ScreenshotOverlayDetectorTests.swift */,
@@ -600,6 +606,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				DF6D6E80F547B8E251AAC7E1 /* AdvancedFeatureTests.swift in Sources */,
+				052F3A8155F5178879345F30 /* ApplicationTerminationTests.swift in Sources */,
 				3263C7E77D8E0D863C092157 /* OCRTextLayoutTests.swift in Sources */,
 				8AF27B53BF1EFCFA45CC861D /* OnboardingStateTests.swift in Sources */,
 				ED9E87F55EA38633C25703EE /* ScreenshotOverlayDetectorTests.swift in Sources */,
@@ -664,6 +671,7 @@
 				EECFE89997E75D04D5B83571 /* AppURLCommand.swift in Sources */,
 				9CF571C66C7D67EC6F7C468D /* AppVersion.swift in Sources */,
 				FD39C24AA6B8509C367FD820 /* AppleDictionaryService.swift in Sources */,
+				8019B4E4575533949948585B /* ApplicationTerminationPolicy.swift in Sources */,
 				A50895D3E047AD7852C7A37A /* CaptureResult.swift in Sources */,
 				5A523DAE691E67836A8D4836 /* ClipboardFallback.swift in Sources */,
 				63D1D8F0C1202F40DF4E9599 /* ContextExtractor.swift in Sources */,

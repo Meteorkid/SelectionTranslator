@@ -48,12 +48,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // AppKit's scene setup may also request termination before the menu
         // bar item exists. Once the app is actually running, let menu, system
         // logout and Sparkle installation quit normally.
-        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
-            return .terminateCancel
+        let isTestHost = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+        if ApplicationTerminationPolicy.shouldTerminate(
+            processStartedAt: processStartedAt,
+            now: Date(),
+            isTestHost: isTestHost
+        ) {
+            return .terminateNow
         }
-        if Date().timeIntervalSince(processStartedAt) < 3 {
-            return .terminateCancel
-        }
-        return .terminateNow
+        return .terminateCancel
     }
 }
