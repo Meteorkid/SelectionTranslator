@@ -41,6 +41,22 @@ enum AppURLCommand: Equatable, Sendable {
     }
 }
 
+/// The browser extension sends a human-readable app name, not a bundle ID.
+/// Mapping it back lets the per-app exclusion list work for page selections
+/// without trusting an arbitrary bundle identifier from the URL payload.
+enum BrowserAppCatalog {
+    static func bundleID(for appName: String) -> String? {
+        switch appName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "safari": return "com.apple.Safari"
+        case "chrome", "google chrome": return "com.google.Chrome"
+        case "chrome canary", "google chrome canary": return "com.google.Chrome.canary"
+        case "edge", "microsoft edge": return "com.microsoft.edgemac"
+        case "firefox", "mozilla firefox": return "org.mozilla.firefox"
+        default: return nil
+        }
+    }
+}
+
 enum AppURLParser {
     static let scheme = "selectiontranslator"
 

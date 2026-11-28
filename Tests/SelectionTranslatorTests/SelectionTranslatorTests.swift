@@ -144,6 +144,18 @@ final class AppURLParserTests: XCTestCase {
         XCTAssertEqual(request.title, "Example")
     }
 
+    func testBrowserAppNamesResolveToBundleIDsForExclusion() {
+        XCTAssertEqual(BrowserAppCatalog.bundleID(for: "Chrome"), "com.google.Chrome")
+        XCTAssertEqual(BrowserAppCatalog.bundleID(for: "Safari"), "com.apple.Safari")
+        XCTAssertEqual(BrowserAppCatalog.bundleID(for: "Microsoft Edge"), "com.microsoft.edgemac")
+        XCTAssertEqual(BrowserAppCatalog.bundleID(for: "Firefox"), "org.mozilla.firefox")
+        XCTAssertNil(BrowserAppCatalog.bundleID(for: "浏览器"))
+
+        var settings = AppSettings()
+        settings.excludedBundleIDs = ["com.google.Chrome"]
+        XCTAssertTrue(settings.isAppExcluded(BrowserAppCatalog.bundleID(for: "Chrome")))
+    }
+
     func testSimpleCommands() {
         XCTAssertEqual(AppURLParser.parse(URL(string: "selectiontranslator://clipboard")!), .clipboard)
         XCTAssertEqual(AppURLParser.parse(URL(string: "selectiontranslator://silent-ocr")!), .silentOCR)

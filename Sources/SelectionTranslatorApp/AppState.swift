@@ -445,7 +445,7 @@ final class AppState: ObservableObject {
                 selectedText: String(request.text.prefix(ExternalURLGate.maxTextCharacters)),
                 context: String(request.context.prefix(ExternalURLGate.maxTextCharacters)),
                 appName: request.appName,
-                bundleID: nil,
+                bundleID: BrowserAppCatalog.bundleID(for: request.appName),
                 windowTitle: request.title,
                 source: .browser,
                 documentContext: String(request.documentContext.prefix(ExternalURLGate.maxTextCharacters))

@@ -82,6 +82,7 @@ struct SettingsView: View {
     @State private var clearContextAccountID: UUID?
     @State private var newGlossaryTerm = ""
     @State private var newGlossaryTranslation = ""
+    @State private var glossaryMessage: String?
     @State private var pdfImportMessage: String?
     @State private var isImportingPDF = false
     @State private var ankiHealth: String?
@@ -708,12 +709,30 @@ struct SettingsView: View {
                     Button("添加") {
                         let entry = GlossaryEntry(term: newGlossaryTerm, translation: newGlossaryTranslation)
                         guard entry.isValid else { return }
+                        let term = entry.term.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if store.settings.glossary.count >= 64 {
+                            glossaryMessage = "术语表最多 64 条；请先删除不用的条目。"
+                            return
+                        }
+                        if store.settings.glossary.contains(where: {
+                            $0.term.compare(term, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame
+                        }) {
+                            glossaryMessage = "术语“\(term)”已经存在，请直接编辑原条目。"
+                            return
+                        }
                         store.settings.glossary.append(entry)
                         newGlossaryTerm = ""
                         newGlossaryTranslation = ""
+                        glossaryMessage = nil
                     }
                     .buttonStyle(.bordered)
                     .disabled(!GlossaryEntry(term: newGlossaryTerm, translation: newGlossaryTranslation).isValid)
+                }
+
+                if let glossaryMessage {
+                    Text(glossaryMessage)
+                        .font(.caption)
+                        .foregroundStyle(.orange)
                 }
             } header: {
                 STSectionHeader(title: "术语表", systemImage: "character.book.closed")
