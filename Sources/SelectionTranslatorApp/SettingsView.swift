@@ -157,6 +157,13 @@ struct SettingsView: View {
             loadDocumentContext()
             loadAPIKey()
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            // The user may have just returned from System Settings after
+            // granting Accessibility or Screen Recording. Refresh the rows
+            // without requiring the settings window to be reopened.
+            accessibilityTrusted = Permissions.isAccessibilityTrusted(prompt: false)
+            screenRecordingTrusted = Permissions.hasScreenRecordingPermission()
+        }
         .onChange(of: accountStore.activeID) { oldID, newID in
             guard oldID != newID else { return }
             // The edited text still belongs to the previous account at this
