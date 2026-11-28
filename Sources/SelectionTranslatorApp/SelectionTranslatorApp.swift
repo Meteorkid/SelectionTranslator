@@ -35,7 +35,6 @@ struct SelectionTranslatorApp: App {
             }
             Divider()
             Button("退出") {
-                AppDelegate.allowQuit = true
                 NSApp.terminate(nil)
             }
         }

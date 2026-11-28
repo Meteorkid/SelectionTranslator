@@ -1,8 +1,6 @@
 import AppKit
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    static var allowQuit = false
-
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         ProcessInfo.processInfo.disableAutomaticTermination("Menu bar translator must stay running")
@@ -36,6 +34,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        Self.allowQuit ? .terminateNow : .terminateCancel
+        // XCTest can send a quit AppleEvent while async tests are still
+        // running; keep the test host alive. Normal app termination (menu,
+        // system logout and Sparkle installation) must not be blocked.
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil
+            ? .terminateNow
+            : .terminateCancel
     }
 }
