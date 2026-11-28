@@ -155,10 +155,26 @@ struct SettingsView: View {
             loadDocumentContext()
             loadAPIKey()
         }
-        .onChange(of: accountStore.activeID) { _, _ in
+        .onChange(of: accountStore.activeID) { oldID, newID in
+            guard oldID != newID else { return }
+            // The edited text still belongs to the previous account at this
+            // point. Keep the debounced change instead of cancelling it and
+            // silently losing the last keystrokes after a profile switch.
+            let previousText = documentContext
+            let previousLoaded = documentContextLoaded
             documentSaveTask?.cancel()
+            var previousSaveFailed = false
+            if previousLoaded {
+                previousSaveFailed = !DocumentContextRepository.write(
+                    previousText,
+                    accountID: oldID
+                )
+            }
             refreshProfileStats()
             loadDocumentContext()
+            if previousSaveFailed {
+                documentContextError = "切换账户时，上一个账户的文档上下文未能保存。"
+            }
             pdfImportMessage = nil
             ankiExportMessage = nil
             ankiHealth = nil

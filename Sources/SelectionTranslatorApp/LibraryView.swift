@@ -16,7 +16,16 @@ final class LibraryViewModel: ObservableObject {
     private var currentSearch = ""
     private var reloadGeneration = 0
 
-    func reload(accountID: UUID, favoritesOnly: Bool, search: String) async {
+    func reload(
+        accountID: UUID,
+        favoritesOnly: Bool,
+        search: String,
+        force: Bool = false
+    ) async {
+        // A favorite/delete completion can arrive after the user switched
+        // profiles. Without this guard the stale reload would overwrite the
+        // new account's rows with the previous account's data.
+        guard force || currentAccountID == nil || currentAccountID == accountID else { return }
         currentFavoritesOnly = favoritesOnly
         currentSearch = search
         reloadGeneration += 1
@@ -178,7 +187,8 @@ struct LibraryView: View {
             await model.reload(
                 accountID: accountStore.activeID,
                 favoritesOnly: selectedTab == 1,
-                search: model.search
+                search: model.search,
+                force: true
             )
         }
         .sheet(isPresented: $showingNewAccount) {

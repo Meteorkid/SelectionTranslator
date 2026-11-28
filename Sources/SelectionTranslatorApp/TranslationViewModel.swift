@@ -201,7 +201,10 @@ final class TranslationViewModel: ObservableObject {
         modelFallbackError = nil
         isStreaming = false
         needsSystemTranslation = false
-        cacheAndPersist()
+        // A system-fallback result is not a model result. Caching it under
+        // the model request key would silently serve it on the next lookup
+        // even if the configured API starts working again.
+        cacheAndPersist(cache: false)
     }
 
     func applySystemTranslationError(_ message: String, token: UUID) {
@@ -282,11 +285,16 @@ final class TranslationViewModel: ObservableObject {
                 }
                 if let recordID = self.recordID {
                     let combined = self.translation + "\n\n语境解释：\n" + explanation
-                    try? await HistoryStore.shared.updateTranslation(
-                        id: recordID,
-                        translatedText: combined,
-                        engine: "离线词库 + 语境"
-                    )
+                    do {
+                        try await HistoryStore.shared.updateTranslation(
+                            id: recordID,
+                            translatedText: combined,
+                            engine: "离线词库 + 语境"
+                        )
+                    } catch {
+                        guard self.runGeneration == generation else { return }
+                        self.explanationError = "语境解释已生成，但保存到历史失败：\(error.localizedDescription)"
+                    }
                 }
             } catch is CancellationError {
                 guard self.runGeneration == generation else { return }
@@ -354,8 +362,8 @@ final class TranslationViewModel: ObservableObject {
         explanationError = nil
     }
 
-    private func cacheAndPersist() {
-        if let capture, let settings {
+    private func cacheAndPersist(cache: Bool = true) {
+        if cache, let capture, let settings {
             TranslationPipeline.storeInCache(
                 translation: translation,
                 capture: capture,
