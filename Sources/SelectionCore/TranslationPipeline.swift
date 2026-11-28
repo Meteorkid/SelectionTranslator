@@ -41,7 +41,7 @@ enum TranslationPipeline {
         settings: AppSettings,
         apiKey: String,
         accountID: UUID? = nil
-    ) -> TranslationRoute {
+    ) async -> TranslationRoute {
         let text = capture.selectedText
         let cacheKey = cacheKey(
             text: text,
@@ -51,15 +51,29 @@ enum TranslationPipeline {
             settings: settings
         )
 
-        if settings.useAppleDictionary,
-           OfflineDictionary.isLookupCandidate(text),
-           let definition = AppleDictionaryService.lookup(text) {
-            return .offlineDictionary(definition, engine: "系统词典")
-        }
-
-        if OfflineDictionary.isLookupCandidate(text),
-           let definition = OfflineDictionary.shared.lookup(text) {
-            return .offlineDictionary(definition, engine: "离线词库")
+        // Dictionary Services and the bundled TSV are synchronous. Run them
+        // off the main actor so a cold dictionary lookup cannot hitch the
+        // panel animation or the first keystroke in the input window.
+        if OfflineDictionary.isLookupCandidate(text) {
+            let dictionaryRoute: TranslationRoute? = await Task.detached(
+                priority: .userInitiated
+            ) { () -> TranslationRoute? in
+                if settings.useAppleDictionary,
+                   let definition = AppleDictionaryService.lookup(text) {
+                    return TranslationRoute.offlineDictionary(
+                        definition,
+                        engine: "系统词典"
+                    )
+                }
+                if let definition = OfflineDictionary.shared.lookup(text) {
+                    return TranslationRoute.offlineDictionary(
+                        definition,
+                        engine: "离线词库"
+                    )
+                }
+                return nil
+            }.value
+            if let dictionaryRoute { return dictionaryRoute }
         }
 
         if let cached = TranslationCache.shared.value(for: cacheKey), !cached.isEmpty {

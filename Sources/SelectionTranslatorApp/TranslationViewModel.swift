@@ -72,15 +72,23 @@ final class TranslationViewModel: ObservableObject {
         engineLabel = ""
         needsSystemTranslation = false
         systemTargetLanguage = settings.targetLanguage
-        isStreaming = false
+        // A dictionary lookup or cache hit resolves quickly, but showing the
+        // progress row avoids a blank panel while the async route is chosen.
+        isStreaming = true
 
-        let route = TranslationPipeline.route(
-            capture: capture,
-            settings: settings,
-            apiKey: apiKey,
-            accountID: accountID
-        )
-        execute(route)
+        let generation = runGeneration
+        Task { [weak self] in
+            let route = await TranslationPipeline.route(
+                capture: capture,
+                settings: settings,
+                apiKey: apiKey,
+                accountID: accountID
+            )
+            await MainActor.run {
+                guard let self, self.runGeneration == generation else { return }
+                self.execute(route)
+            }
+        }
     }
 
     func start(
