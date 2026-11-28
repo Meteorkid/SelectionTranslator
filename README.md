@@ -26,7 +26,7 @@ GitHub Releases：<https://github.com/Meteorkid/SelectionTranslator/releases/lat
 - `SelectionTranslator-0.4.3-source.zip`：源码、脚本、浏览器扩展、设计文档和更新说明。
 - 也可以从源码构建；步骤见下方「构建与测试」。
 
-> 从 `0.4.0` 升级：请手动下载 `0.4.3` 覆盖安装一次；`0.4.1` 及之后的版本已包含 Sparkle，可通过自动更新检查到本版。
+> 从 `0.4.0` 升级：请手动下载 `0.4.3` 覆盖安装一次；`0.4.1` / `0.4.2` 能检查到 `0.4.3`，但旧版的退出保护会拦住 Sparkle 自动安装。本版对旧版本只展示“Learn More”，请从 Release 页面手动下载覆盖；`0.4.3` 及以后可正常自动更新。
 
 ## 已实现
 

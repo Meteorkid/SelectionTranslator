@@ -58,7 +58,8 @@
 - `xcodebuild test`：**59 tests, 0 failures**，`TEST SUCCEEDED`。
 - `xcodebuild analyze`：`ANALYZE SUCCEEDED`。
 - Finder 调起 `selectiontranslator://` 实机验证：签名校验通过，翻译面板正常显示。
-- 本地 0.4.2 → 0.4.3 测试包完整验证 Sparkle：自动检查、EdDSA 校验、下载、替换 App、重启动；启动退出保护没有阻塞安装终止请求。记录见 `docs/qa-sparkle-update-2026-11-28.md`。
+- 本地 0.4.2 → 0.4.3 测试包完整验证 Sparkle：自动检查、EdDSA 校验、下载、替换 App、重启动；启动退出保护没有阻塞安装终止请求。记录见 `docs/qa-sparkle-update-2026-11-28.md`。（该测试旧包是当前 Debug 构建改版本号，不是正式 0.4.2 二进制。）
+- 生产正式 0.4.2：feed 能显示 0.4.3 并下载，但旧版 `allowQuit=false` 会拒绝 Sparkle 的终止请求，安装停在 “Ready to Install”；强制退出旧 App 后替换完成，版本 0.4.3/8，`codesign --verify --deep --strict` 通过。因此本版对旧版本改为信息型更新，避免用户卡在自动安装。
 
 ## 未纳入本次验收
 
@@ -68,8 +69,15 @@
 
 ## 升级说明
 
-- `0.4.1` / `0.4.2` 已包含 Sparkle，可自动检查到 `0.4.3`；也可以手动下载 zip 覆盖安装。
-- 从 `0.4.0` 升级请手动下载 `0.4.3` 覆盖安装一次。
+### 从 0.4.2 及更早版本升级
+
+- `0.4.2` 及更早版本的退出保护会拒绝 Sparkle 的自动安装终止请求。本版对构建号低于 `8` 的旧版本只展示“Learn More”，不再触发可能停在“Ready to Install”的自动安装；请从本 Release 页面下载 `SelectionTranslator-0.4.3.zip`，退出旧 App 后覆盖安装。
+- 如果你已经在旧版点了“Install and Relaunch”并停在“Ready to Install”：在活动监视器里强制退出 `SelectionTranslator`，Sparkle 会继续完成替换；或直接手动下载覆盖。
+- `0.4.0` 也必须手动下载 `0.4.3` 覆盖安装一次。
+
+### 后续自动更新
+
+- `0.4.3` 已修正退出保护：启动 3 秒后允许 Sparkle、菜单和系统注销正常终止。后续版本可以从 `0.4.3` 继续走自动更新。
 - 首次读取由旧版本创建的加密历史/keychain 项时，系统可能要求一次钥匙串授权；允许后同一签名不再反复弹窗。
 
 ## 资产

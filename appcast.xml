@@ -13,6 +13,10 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
             <sparkle:releaseNotesLink>https://github.com/Meteorkid/SelectionTranslator/releases/download/v0.4.3/SelectionTranslator-0.4.3.md</sparkle:releaseNotesLink>
+            <link>https://github.com/Meteorkid/SelectionTranslator/releases/tag/v0.4.3</link>
+            <sparkle:informationalUpdate>
+                <sparkle:belowVersion>8</sparkle:belowVersion>
+            </sparkle:informationalUpdate>
             <enclosure url="https://github.com/Meteorkid/SelectionTranslator/releases/download/v0.4.3/SelectionTranslator-0.4.3.zip" length="4108266" type="application/octet-stream" sparkle:edSignature="z9qOpu8Oee1znRBPIhEsaN/MFfUwgl5D8PAuRcOID3BIU4pPZJ/9EOBTlT+nnjBA1GqWx6Fqu4n6ung+M2lQCQ=="/>
         </item>
         <item>
@@ -38,6 +42,6 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: B58wCZBjwzSH/RTe6sO9B/YqzSxTXNRXuLJ9Fy98IZrneTn8RUHBsUcJH0semRe3abAdCrAFBrqx3He8I5BsCg==
-length: 3056
+edSignature: baLGY7aOmc1bcW0fG3OhnklcZo8clWQfdmsPPm1AlzMEtaN62UkhAVIciL4k5QrN63pdJB6UboQzcGmjbOiIBg==
+length: 3298
 -->
