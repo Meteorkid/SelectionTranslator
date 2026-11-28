@@ -38,3 +38,8 @@
 4. 根因：正式 0.4.2 的 `AppDelegate.allowQuit = false`，`applicationShouldTerminate` 始终返回 `.terminateCancel`；0.4.3 才改为启动 3 秒后允许退出。启动 5 秒后对 0.4.3 执行同一 AppleEvent，进程正常退出，修复有效。
 5. 在安装等待状态强制退出旧 App 后，Sparkle 继续完成替换：`CFBundleShortVersionString` 从 `0.4.2` 变为 `0.4.3`，`CFBundleVersion` 从 `7` 变为 `8`，`codesign --verify --deep --strict` 通过。强制退出路径没有自动重启 App，手动打开后进程持续运行。
 6. 处置：生产 appcast 的 0.4.3 条目加入 `<sparkle:informationalUpdate><sparkle:belowVersion>8</sparkle:belowVersion></sparkle:informationalUpdate>` 和指向 Release 页的 `<link>`。构建号 `< 8` 的旧版本只看到“Learn More”，不再触发会卡住的自动安装；0.4.3/8 不受影响，后续版本可继续正常自动更新。
+
+## 旧版本信息型更新验证
+
+- `0.4.1 / 6`：用 `ditto` 解压正式包，`codesign --verify --deep --strict` 通过；启动后检查生产 feed，出现 570×402 的信息型更新窗口，不是 546×402 的下载/安装窗口，符合 `< 8` 的 “Learn More” 路径。
+- `0.4.3 / 8`：用 `ditto` 解压正式包，启动并触发检查；`SULastCheckTime` 已更新，说明 feed 请求成功；因为没有更高版本，未出现更新窗口，信息型标签没有反向影响当前版本。
