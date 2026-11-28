@@ -517,12 +517,10 @@ final class AppState: ObservableObject {
 
         log.info("capture app=\(enriched.appName, privacy: .public) source=\(enriched.source.rawValue, privacy: .public) selectionLen=\(enriched.selectedText.count, privacy: .public) contextLen=\(enriched.context.count, privacy: .public) documentLen=\(enriched.documentContext.count, privacy: .public)")
 
-        let apiKey = KeychainStore.read(key: "apiKey") ?? ""
-
         panelController.show(
             capture: enriched,
             settings: settings,
-            apiKey: apiKey,
+            apiKeyProvider: { KeychainStore.read(key: "apiKey") ?? "" },
             accountID: accountStore.activeID,
             onOpenLibrary: { [weak self] in
                 self?.openLibrary()

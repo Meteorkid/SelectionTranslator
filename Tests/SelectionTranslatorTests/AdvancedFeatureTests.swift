@@ -403,4 +403,26 @@ final class AdvancedFeatureTests: XCTestCase {
         XCTAssertEqual(binding.carbonModifiers, 0x0100 | 0x0200 | 0x0800 | 0x1000)
     }
 
+    func testPipelineDefersAPIKeyUntilModelRoute() async {
+        let settings = AppSettings()
+        let capture = CaptureResult(
+            selectedText: "A sentence needs the model route \(UUID().uuidString)",
+            context: "",
+            appName: "Tests",
+            bundleID: nil,
+            windowTitle: nil,
+            source: .input
+        )
+
+        let route = await TranslationPipeline.route(
+            capture: capture,
+            settings: settings,
+            accountID: UUID()
+        )
+
+        guard case .needsAPIKey = route else {
+            return XCTFail("Expected the pipeline to wait for the API key, got \(route)")
+        }
+    }
+
 }

@@ -27,6 +27,10 @@ enum TranslationRoute: Sendable {
     case offlineDictionary(String, engine: String)
     case cache(String)
     case model(TranslationRequest)
+    /// The model path is viable only after resolving the API key. Keeping this
+    /// as a separate route lets dictionary/cache results avoid touching the
+    /// Keychain at all.
+    case needsAPIKey
     case system
     case unavailable(String)
 }
@@ -39,7 +43,6 @@ enum TranslationPipeline {
     static func route(
         capture: CaptureResult,
         settings: AppSettings,
-        apiKey: String,
         accountID: UUID? = nil
     ) async -> TranslationRoute {
         let text = capture.selectedText
@@ -80,30 +83,30 @@ enum TranslationPipeline {
             return .cache(cached)
         }
 
-        if !apiKey.isEmpty || settings.isUsableWithoutKey {
-            return .model(
-                TranslationRequest(
-                    text: text,
-                    context: capture.context,
-                    targetLanguage: settings.targetLanguage,
-                    model: settings.model,
-                    apiBaseURL: settings.apiBaseURL,
-                    apiKey: apiKey,
-                    temperature: settings.temperature,
-                    maxOutputTokens: settings.maxOutputTokens,
-                    documentContext: capture.documentContext,
-                    style: settings.translationStyle,
-                    glossary: settings.glossary
-                )
-            )
+        if settings.isUsableWithoutKey {
+            return .model(request(capture: capture, settings: settings, apiKey: ""))
         }
 
-        if #available(macOS 15.0, *) {
-            return .system
-        }
+        return .needsAPIKey
+    }
 
-        return .unavailable(
-            "这台 Mac 上没有可用的翻译引擎。可以安装 Ollama、填 API Key，或升级到 macOS 15 使用系统翻译。"
+    static func request(
+        capture: CaptureResult,
+        settings: AppSettings,
+        apiKey: String
+    ) -> TranslationRequest {
+        TranslationRequest(
+            text: capture.selectedText,
+            context: capture.context,
+            targetLanguage: settings.targetLanguage,
+            model: settings.model,
+            apiBaseURL: settings.apiBaseURL,
+            apiKey: apiKey,
+            temperature: settings.temperature,
+            maxOutputTokens: settings.maxOutputTokens,
+            documentContext: capture.documentContext,
+            style: settings.translationStyle,
+            glossary: settings.glossary
         )
     }
 

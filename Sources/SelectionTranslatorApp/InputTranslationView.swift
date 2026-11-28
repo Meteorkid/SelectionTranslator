@@ -276,7 +276,7 @@ struct InputTranslationView: View {
             appName: "输入翻译",
             source: .input,
             settings: store.settings,
-            apiKey: KeychainStore.read(key: "apiKey") ?? "",
+            apiKeyProvider: { KeychainStore.read(key: "apiKey") ?? "" },
             accountID: accountStore.activeID,
             documentContext: document
         )

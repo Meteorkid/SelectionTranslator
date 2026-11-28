@@ -33,12 +33,20 @@ final class TranslationViewModel: ObservableObject {
     @Published private(set) var systemToken = UUID()
     private var capture: CaptureResult?
     private var settings: AppSettings?
-    private var apiKey = ""
+    /// Resolved only when a route actually needs a model. Dictionary and
+    /// cache results must not touch the Keychain, which can show an access
+    /// prompt for an item whose ACL belongs to another build.
+    private var apiKeyProvider: @Sendable () -> String = { "" }
     private var accountID: UUID?
     private var didPersist = false
     private var modelFallbackError: String?
 
-    func start(capture: CaptureResult, settings: AppSettings, apiKey: String, accountID: UUID) {
+    func start(
+        capture: CaptureResult,
+        settings: AppSettings,
+        apiKeyProvider: @escaping @Sendable () -> String,
+        accountID: UUID
+    ) {
         task?.cancel()
         task = nil
         explainTask?.cancel()
@@ -48,7 +56,7 @@ final class TranslationViewModel: ObservableObject {
 
         self.capture = capture
         self.settings = settings
-        self.apiKey = apiKey
+        self.apiKeyProvider = apiKeyProvider
         self.accountID = accountID
         didPersist = false
         modelFallbackError = nil
@@ -81,7 +89,6 @@ final class TranslationViewModel: ObservableObject {
             let route = await TranslationPipeline.route(
                 capture: capture,
                 settings: settings,
-                apiKey: apiKey,
                 accountID: accountID
             )
             await MainActor.run {
@@ -97,7 +104,7 @@ final class TranslationViewModel: ObservableObject {
         appName: String = "输入翻译",
         source: CaptureSource = .input,
         settings: AppSettings,
-        apiKey: String,
+        apiKeyProvider: @escaping @Sendable () -> String,
         accountID: UUID,
         documentContext: String = ""
     ) {
@@ -110,12 +117,22 @@ final class TranslationViewModel: ObservableObject {
             source: source,
             documentContext: documentContext
         )
-        start(capture: capture, settings: settings, apiKey: apiKey, accountID: accountID)
+        start(
+            capture: capture,
+            settings: settings,
+            apiKeyProvider: apiKeyProvider,
+            accountID: accountID
+        )
     }
 
     func retry() {
         guard let capture, let settings, let accountID else { return }
-        start(capture: capture, settings: settings, apiKey: apiKey, accountID: accountID)
+        start(
+            capture: capture,
+            settings: settings,
+            apiKeyProvider: apiKeyProvider,
+            accountID: accountID
+        )
     }
 
     private func execute(_ route: TranslationRoute) {
@@ -124,8 +141,10 @@ final class TranslationViewModel: ObservableObject {
             engineLabel = engine
             translation = definition
             isStreaming = false
+            // Resolving the API key here would defeat the deferred-Keychain
+            // path. Offer the action; explainInContext resolves the key on
+            // demand and explains if the configuration is incomplete.
             canExplainInContext = !captureContextEmpty
-                && TranslationPipeline.canUseModel(settings: settings ?? AppSettings(), apiKey: apiKey)
             persistIfNeeded()
 
         case .cache(let cached):
@@ -133,11 +152,30 @@ final class TranslationViewModel: ObservableObject {
             translation = cached
             isStreaming = false
             canExplainInContext = !captureContextEmpty
-                && TranslationPipeline.canUseModel(settings: settings ?? AppSettings(), apiKey: apiKey)
             persistIfNeeded()
 
         case .model(let request):
             startModel(request: request)
+
+        case .needsAPIKey:
+            guard let capture, let settings else { return }
+            let apiKey = apiKeyProvider()
+            if TranslationPipeline.canUseModel(settings: settings, apiKey: apiKey) {
+                startModel(
+                    request: TranslationPipeline.request(
+                        capture: capture,
+                        settings: settings,
+                        apiKey: apiKey
+                    )
+                )
+            } else if #available(macOS 15.0, *) {
+                engineLabel = "系统翻译"
+                requestSystemTranslation()
+            } else {
+                engineLabel = "无可用引擎"
+                errorMessage = "这台 Mac 上没有可用的翻译引擎。可以安装 Ollama、填 API Key，或升级到 macOS 15 使用系统翻译。"
+                isStreaming = false
+            }
 
         case .system:
             engineLabel = "系统翻译"
@@ -254,6 +292,12 @@ final class TranslationViewModel: ObservableObject {
               let capture,
               let settings else { return }
 
+        let apiKey = apiKeyProvider()
+        guard settings.isUsableWithoutKey || !apiKey.isEmpty else {
+            explanationError = "语境解释需要配置 API Key 或本地模型。"
+            return
+        }
+
         explanationError = nil
         contextExplanation = ""
         isExplaining = true
@@ -348,7 +392,7 @@ final class TranslationViewModel: ObservableObject {
         cancel()
         capture = nil
         settings = nil
-        apiKey = ""
+        apiKeyProvider = { "" }
         accountID = nil
         didPersist = false
         modelFallbackError = nil

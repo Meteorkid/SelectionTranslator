@@ -15,7 +15,7 @@ final class TranslationPanelController {
     func show(
         capture: CaptureResult,
         settings: AppSettings,
-        apiKey: String,
+        apiKeyProvider: @escaping @Sendable () -> String,
         accountID: UUID,
         onOpenLibrary: @escaping () -> Void
     ) {
@@ -41,7 +41,7 @@ final class TranslationPanelController {
         viewModel.start(
             capture: capture,
             settings: settings,
-            apiKey: apiKey,
+            apiKeyProvider: apiKeyProvider,
             accountID: accountID
         )
     }
